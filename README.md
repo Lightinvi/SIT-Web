@@ -90,6 +90,10 @@ npm run build
 
 ## Production
 
+For HTTPS on `sit-web.sytes.net` and automatic certificate renewal, see
+[HTTPS setup](docs/https.md). A VM-level Nginx terminates TLS in front of the
+existing frontend container; certificates persist independently of releases.
+
 For release-tag builds and SSH deployment to a GCP VM, see
 [GitHub Actions deployment](docs/deployment.md). The entry workflow is
 `.github/workflows/release.yml`; frontend build, backend build, and deployment

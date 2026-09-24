@@ -16,7 +16,7 @@ services:
   frontend:
     image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE}
     ports:
-      - "${HTTP_PORT:-8080}:80"
+      - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-8080}:80"
     depends_on:
       backend:
         condition: service_healthy

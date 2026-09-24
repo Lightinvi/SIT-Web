@@ -70,7 +70,7 @@ umask 077
 printf 'SECRET_KEY=%s\nHTTP_PORT=8080\n' "$(openssl rand -hex 32)" > ~/sit-web/.env
 ```
 
-上述命令只在第一次初始化執行；再次執行會更換 SECRET_KEY。正式網站的網域與 HTTPS 終止需另行設定。
+上述命令只在第一次初始化執行；再次執行會更換 SECRET_KEY。正式網域 `sit-web.sytes.net` 的 HTTPS 與自動續期請依照 [HTTPS 設定](https.md)。
 
 部署腳本只在暫存目錄保留 GHCR 認證，結束後清除。VM 上的 `~/sit-web/.env` 不會被 workflow 覆寫。
 若 VM 上已有用其他 Compose project name 或 `docker run` 啟動的 SIT-Web，先確認並停止舊服務，避免 8080 衝突；本流程不會刪除其他專案的容器。
@@ -92,6 +92,8 @@ git push origin release/v1.0.0
 ## 檢查與重啟
 
 部署成功後，VM 的 `~/sit-web/` 會保留 compose 與該次映像 digest：
+
+也會收到 `setup-https.sh`，供在 VM 上一次性安裝 HTTPS 與自動續期；release 不會覆寫 VM Nginx 或憑證。
 
 ```bash
 cd ~/sit-web

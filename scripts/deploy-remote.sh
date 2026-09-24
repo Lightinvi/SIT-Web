@@ -24,4 +24,5 @@ compose=(docker compose --project-name sit-web --project-directory "$deploy_dir"
 
 cp "$bundle/compose.production.yaml" "$deploy_dir/compose.production.yaml"
 cp "$bundle/images.env" "$deploy_dir/images.env"
+cp "$bundle/setup-https.sh" "$deploy_dir/setup-https.sh"
 "${compose[@]}" ps

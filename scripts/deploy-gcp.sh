@@ -33,9 +33,10 @@ printf '%s\n' "$GHCR_USERNAME" > "$bundle/registry.user"
 printf 'FRONTEND_IMAGE=%s\nBACKEND_IMAGE=%s\n' "$FRONTEND_IMAGE" "$BACKEND_IMAGE" > "$bundle/images.env"
 cp "$root/compose.production.yaml" "$bundle/compose.production.yaml"
 cp "$root/scripts/deploy-remote.sh" "$bundle/deploy-remote.sh"
+cp "$root/scripts/setup-https.sh" "$bundle/setup-https.sh"
 
 candidate="$(ssh "${ssh_options[@]}" "$remote" 'mktemp -d /tmp/sit-web-deploy.XXXXXXXXXX')"
 [[ "$candidate" =~ ^/tmp/sit-web-deploy\.[a-zA-Z0-9]{10}$ ]] || { echo 'Invalid remote temporary directory' >&2; exit 1; }
 remote_dir="$candidate"
-scp "${ssh_options[@]}" "$bundle/registry.token" "$bundle/registry.user" "$bundle/images.env" "$bundle/compose.production.yaml" "$bundle/deploy-remote.sh" "$remote:$remote_dir/"
+scp "${ssh_options[@]}" "$bundle/registry.token" "$bundle/registry.user" "$bundle/images.env" "$bundle/compose.production.yaml" "$bundle/deploy-remote.sh" "$bundle/setup-https.sh" "$remote:$remote_dir/"
 ssh "${ssh_options[@]}" "$remote" "bash '$remote_dir/deploy-remote.sh' '$remote_dir'"

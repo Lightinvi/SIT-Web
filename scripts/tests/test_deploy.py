@@ -38,6 +38,7 @@ class DeployTests(unittest.TestCase):
         (self.bundle / "registry.token").write_text("test-token")
         (self.bundle / "images.env").write_text("FRONTEND_IMAGE=test-front\nBACKEND_IMAGE=test-back\n")
         shutil.copyfile(ROOT / "compose.production.yaml", self.bundle / "compose.production.yaml")
+        shutil.copyfile(ROOT / "scripts/setup-https.sh", self.bundle / "setup-https.sh")
         self.env = {
             **os.environ,
             "PATH": f"{self.workspace}:{os.environ['PATH']}",
@@ -62,6 +63,7 @@ class DeployTests(unittest.TestCase):
         self.assertLess(pull, up)
         self.assertIn("--force-recreate --wait --wait-timeout 120", commands[up])
         self.assertTrue((self.deploy / "images.env").is_file())
+        self.assertTrue((self.deploy / "setup-https.sh").is_file())
         self.assertFalse(self.bundle.exists())
 
     def test_pull_failure_never_updates_containers(self):
