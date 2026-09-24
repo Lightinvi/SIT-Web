@@ -1,0 +1,43 @@
+name: Release to GCP
+
+on:
+  push:
+    tags:
+      - "release/*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sit-web-production
+  cancel-in-progress: false
+
+jobs:
+  frontend:
+    name: Build frontend
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-frontend.yml
+
+  backend:
+    name: Build backend
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-backend.yml
+
+  deploy:
+    name: Deploy to GCP VM
+    needs: [frontend, backend]
+    uses: ./.github/workflows/deploy-gcp.yml
+    with:
+      frontend-image: ${{ needs.frontend.outputs.image }}
+      backend-image: ${{ needs.backend.outputs.image }}
+    secrets:
+      GCP_VM_HOST: ${{ secrets.GCP_VM_HOST }}
+      GCP_VM_USER: ${{ secrets.GCP_VM_USER }}
+      GCP_VM_SSH_KEY: ${{ secrets.GCP_VM_SSH_KEY }}
+      GCP_VM_KNOWN_HOSTS: ${{ secrets.GCP_VM_KNOWN_HOSTS }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_PAT: ${{ secrets.GHCR_PAT }}

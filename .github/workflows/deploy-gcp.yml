@@ -1,0 +1,49 @@
+name: Deploy GCP VM
+
+on:
+  workflow_call:
+    inputs:
+      frontend-image:
+        required: true
+        type: string
+      backend-image:
+        required: true
+        type: string
+    secrets:
+      GCP_VM_HOST:
+        required: true
+      GCP_VM_USER:
+        required: true
+      GCP_VM_SSH_KEY:
+        required: true
+      GCP_VM_KNOWN_HOSTS:
+        required: true
+      GHCR_USERNAME:
+        required: true
+      GHCR_PAT:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment scripts
+        run: |
+          bash -n scripts/deploy-gcp.sh scripts/deploy-remote.sh
+          python3 -m unittest discover -s scripts/tests -v
+      - name: Deploy both images over SSH
+        env:
+          FRONTEND_IMAGE: ${{ inputs.frontend-image }}
+          BACKEND_IMAGE: ${{ inputs.backend-image }}
+          GCP_VM_HOST: ${{ secrets.GCP_VM_HOST }}
+          GCP_VM_USER: ${{ secrets.GCP_VM_USER }}
+          GCP_VM_SSH_KEY: ${{ secrets.GCP_VM_SSH_KEY }}
+          GCP_VM_KNOWN_HOSTS: ${{ secrets.GCP_VM_KNOWN_HOSTS }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+        run: bash scripts/deploy-gcp.sh

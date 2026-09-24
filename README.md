@@ -90,6 +90,11 @@ npm run build
 
 ## Production
 
+For release-tag builds and SSH deployment to a GCP VM, see
+[GitHub Actions deployment](docs/deployment.md). The entry workflow is
+`.github/workflows/release.yml`; frontend build, backend build, and deployment
+each have their own reusable workflow. Push a `release/*` Git tag to trigger it.
+
 From `backend/`, with the virtual environment activated:
 
 ```bash
