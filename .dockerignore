@@ -1,0 +1,9 @@
+.git
+.agents
+.codex
+.venv
+.tools
+**/node_modules
+**/dist
+**/__pycache__
+.env

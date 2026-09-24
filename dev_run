@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON="$ROOT/.venv/bin/python"
+VITE="$ROOT/frontend/node_modules/vite/bin/vite.js"
+export PATH="$ROOT/.tools/node/bin:$PATH"
+
+fail() {
+    printf 'Error: %s\n' "$*" >&2
+    exit 1
+}
+
+[[ -x "$PYTHON" ]] || fail 'Missing .venv. Follow the setup in README.md.'
+command -v node >/dev/null || fail 'Node.js is missing. Install Node.js 24 or use .tools/node.'
+command -v setsid >/dev/null || fail 'setsid is required. Run this script in Linux/WSL with util-linux installed.'
+[[ -f "$VITE" ]] || fail 'Frontend dependencies are missing. Run npm ci in frontend/.'
+"$PYTHON" -c 'import flask, dotenv' || fail 'Run .venv/bin/python -m pip install -r backend/requirements.txt.'
+
+# Check both ports before starting either server. Do not terminate other programs.
+"$PYTHON" - <<'PY'
+import socket
+import sys
+
+occupied = []
+for port in (5000, 5173):
+    with socket.socket() as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            listener.bind(("127.0.0.1", port))
+        except OSError as error:
+            occupied.append(port)
+            print(f"Cannot start: port {port} is unavailable ({error.strerror}).", file=sys.stderr)
+
+if occupied:
+    print("Stop the previous dev_run with Ctrl+C, then run ./dev_run again.", file=sys.stderr)
+    print("Inspect listeners: ss -ltnp '( sport = :5000 or sport = :5173 )'", file=sys.stderr)
+    sys.exit(1)
+PY
+
+pids=()
+cleanup() {
+    trap '' INT TERM
+    # Each server has its own process group, including hot-reload children.
+    for pid in "${pids[@]}"; do
+        kill -TERM -- "-$pid" 2>/dev/null || true
+    done
+    for pid in "${pids[@]}"; do
+        wait "$pid" 2>/dev/null || true
+    done
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+cd "$ROOT/backend"
+setsid "$PYTHON" -m flask --app wsgi run --debug --host 127.0.0.1 --port 5000 &
+pids+=("$!")
+
+cd "$ROOT/frontend"
+setsid node "$VITE" --host 127.0.0.1 --port 5173 --strictPort &
+pids+=("$!")
+
+printf '\nFrontend: http://localhost:5173\nBackend:  http://localhost:5000\nPress Ctrl+C to stop both servers.\n\n'
+
+# Shut down the other server if either process exits or fails to start.
+status=0
+wait -n "${pids[@]}" || status=$?
+exit "$status"

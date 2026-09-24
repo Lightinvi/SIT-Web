@@ -1,0 +1,12 @@
+:root {
+  font-family: "Noto Sans TC", system-ui, sans-serif;
+  color: #242a2b; background: #f7f9f9;
+  font-synthesis: none; text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased; letter-spacing: 0;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button { font: inherit; }
+a { color: inherit; }
+button:focus-visible, a:focus-visible { outline: 3px solid #269482; outline-offset: 4px; }
+button:disabled { cursor: wait; opacity: .65; }
