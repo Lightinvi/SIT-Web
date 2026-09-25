@@ -3,6 +3,15 @@ services:
     image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE}
     environment:
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the VM .env}
+      DISCORD_BOT_CLIENT_ID: ${DISCORD_BOT_CLIENT_ID:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      STORAGE_PATH: /app/storage
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+    volumes:
+      - storage:/app/storage
     expose:
       - "8000"
     restart: unless-stopped
@@ -27,3 +36,6 @@ services:
       timeout: 5s
       retries: 6
       start_period: 10s
+
+volumes:
+  storage:

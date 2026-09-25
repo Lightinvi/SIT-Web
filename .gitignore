@@ -11,3 +11,5 @@ dist/
 *.tsbuildinfo
 .DS_Store
 backend/instance/
+
+storage/
