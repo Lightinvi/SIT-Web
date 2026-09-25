@@ -1,85 +1,62 @@
-import { useEffect, useState } from 'react'
-import { ArrowUpRight, CircleCheck, RefreshCw, Users, WifiOff } from 'lucide-react'
-import { getUsers } from './api/users'
-import type { User } from './types/user'
+import { ArrowDown, ArrowUpRight, Sparkles } from 'lucide-react'
+import teamLogo from './assets/SIT隊徽(去背).png'
 import './App.css'
 
+const discordUrl = 'https://discord.com/invite/VmeJwTv'
+
 function App() {
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
-  const [refresh, setRefresh] = useState(0)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 10000)
-    let disposed = false
-    getUsers(controller.signal)
-      .then((data) => {
-        if (disposed) return
-        setUsers(data.users)
-        setUpdatedAt(new Date())
-      })
-      .catch((cause: unknown) => {
-        if (disposed) return
-        setError(controller.signal.aborted ? '連線逾時，請確認後端服務已啟動。'
-          : cause instanceof Error ? cause.message : '連線失敗，請稍後重試。')
-      })
-      .finally(() => {
-        window.clearTimeout(timeout)
-        if (!disposed) setLoading(false)
-      })
-    return () => {
-      disposed = true
-      controller.abort()
-      window.clearTimeout(timeout)
-    }
-  }, [refresh])
-
-  function reload() {
-    setLoading(true)
-    setError('')
-    setRefresh((value) => value + 1)
-  }
-
   return (
     <>
+      <a className="skip-link" href="#about">跳至團隊介紹</a>
       <header className="topbar">
-        <a href="/" className="brand"><span className="brand-mark">S</span>SIT Web</a>
-        <span className="workspace">工作空間 / 總覽</span>
-        <span className="environment">開發環境</span>
+        <a href="/" className="brand" aria-label="SIT Star Impact Team 首頁">
+          <img src={teamLogo} alt="" />
+          <span>SIT<span className="brand-subtitle">STAR IMPACT TEAM</span></span>
+        </a>
+        <nav aria-label="主要導覽">
+          <a className="about-link" href="#about">關於我們</a>
+          <a className="nav-discord" href={discordUrl} target="_blank" rel="noopener noreferrer">加入 Discord <ArrowUpRight size={16} aria-hidden="true" /></a>
+        </nav>
       </header>
+
       <main>
-        <div className="page-heading">
-          <div><p className="eyebrow">WORKSPACE OVERVIEW</p><h1>工作空間總覽</h1><p className="muted">成員與最新連線狀態。</p></div>
-          <button onClick={reload} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} />{loading ? '更新中' : '重新整理'}</button>
-        </div>
-        <section className="summary" aria-label="工作空間摘要">
-          <div><span className="metric-label"><Users size={17} />成員總數</span><strong data-testid="total">{updatedAt ? users.length : '—'}</strong><span className="muted">示範工作空間</span></div>
-          <div><span className="metric-label">使用中</span><strong data-testid="active">{updatedAt ? users.filter(user => user.status === 'active').length : '—'}</strong><span className="muted">已啟用的成員</span></div>
-          <div><span className="metric-label">連線狀態</span><strong className={'connection ' + (error ? 'failed' : '')}>{loading ? '連線中' : error ? '連線失敗' : '已連線'}</strong><span className="muted">{updatedAt ? '最後更新 ' + updatedAt.toLocaleTimeString('zh-TW', { hour12: false }) : '尚未同步'}</span></div>
-        </section>
-        <section aria-labelledby="members-heading">
-          <div className="section-heading"><h2 id="members-heading">工作空間成員 <span className="tag">示範資料</span></h2><a href="/api/users" target="_blank" rel="noreferrer">查看原始資料<ArrowUpRight size={15} /></a></div>
-          {error && <div className="error" role="alert"><WifiOff size={18} /><span>{error}{updatedAt && ' 下方保留上次取得的資料。'}</span></div>}
-          <div className="table-scroll" aria-busy={loading}>
-            <table>
-              <thead><tr><th>成員</th><th>電子郵件</th><th>角色</th><th>狀態</th></tr></thead>
-              <tbody>
-                {users.map(user => <tr key={user.id} data-testid="user-row">
-                  <td><span className="member"><span className="avatar" aria-hidden="true">{user.name.slice(0, 1)}</span><span data-field="name">{user.name}</span></span></td>
-                  <td data-field="email">{user.email}</td><td data-field="role">{user.role}</td>
-                  <td><span className={'status ' + user.status} data-field="status">{user.status === 'active' ? '使用中' : '待加入'}</span></td>
-                </tr>)}
-                {!users.length && <tr><td colSpan={4} className="empty">{loading ? '正在載入成員…' : error ? '暫時無法載入成員' : '尚無成員'}</td></tr>}
-              </tbody>
-            </table>
+        <section className="hero" aria-labelledby="hero-title">
+          <div className="hero-copy">
+            <p className="eyebrow"><span /> THIS IS OUR ORBIT</p>
+            <h1 id="hero-title">網頁開發中</h1>
+            <p className="hero-description">SIT — Star Impact Team。<br />在這裡，一起遊玩一起歡樂</p>
+            <a className="primary-link" href={discordUrl} target="_blank" rel="noopener noreferrer">加入我們的 Discord <ArrowUpRight size={20} aria-hidden="true" /></a>
+            <a className="explore-link" href="#about"><ArrowDown size={15} aria-hidden="true" /> 認識 SIT <span>往下探索</span></a>
           </div>
-          <p className="sync-note" role="status">{!loading && !error && <><CircleCheck size={15} />成員資料已同步</>}</p>
+
+          <div className="hero-art" role="img" aria-label="SIT 隊徽，搭配橘金色星光與軌道">
+            <div className="art-label"><span className="tiny-star">✦</span> A SHARED PASSION. A SHARED UNIVERSE.</div>
+            <div className="orbit orbit-one" />
+            <div className="orbit orbit-two" />
+            <span className="star star-one">✦</span><span className="star star-two">✧</span><span className="star star-three">✦</span>
+            <img className="hero-logo" src={teamLogo} alt="" fetchPriority="high" />
+            <div className="art-caption"><span>STAR IMPACT TEAM</span><span>一起，閃耀。</span></div>
+          </div>
         </section>
-        <footer><span>SIT Web</span><span>工作空間總覽</span></footer>
+
+        <section className="about-section" id="about" aria-labelledby="about-title">
+          <div className="section-label"><span>01 / ABOUT US</span><Sparkles size={20} aria-hidden="true" /></div>
+          <div className="about-content">
+            <p className="eyebrow">HELLO, WE ARE SIT</p>
+            <h2 id="about-title">一群夥伴，一份共同的熱愛。</h2>
+            <p>Star Impact Team，簡稱 SIT。我們相信，每一份熱情都有自己的光芒；當志同道合的夥伴聚在一起，就能碰撞出更多可能。</p>
+            <p>無論是交流日常、分享喜愛的事物，或一起迎接新的挑戰，這裡都歡迎你的加入。讓我們從一聲招呼開始，寫下下一段共同的故事。</p>
+            <div className="team-signature"><span>✦</span> CONNECT. SHARE. SHINE.</div>
+          </div>
+        </section>
+
+        <section className="community" aria-labelledby="community-title">
+          <div className="community-symbol" aria-hidden="true">✳</div>
+          <div className="community-copy"><p className="eyebrow">YOUR NEXT CONNECTION STARTS HERE</p><h2 id="community-title">下一位夥伴，就是你。</h2><p>來 Discord 打聲招呼，加入我們的日常。</p></div>
+          <a className="community-link" href={discordUrl} target="_blank" rel="noopener noreferrer">前往 Discord <ArrowUpRight size={20} aria-hidden="true" /></a>
+        </section>
       </main>
+      <footer><a href="/" className="footer-brand">SIT <span>STAR IMPACT TEAM</span></a><span>因熱愛而相聚，因彼此而閃耀。</span><span>© {new Date().getFullYear()} SIT</span></footer>
     </>
   )
 }
