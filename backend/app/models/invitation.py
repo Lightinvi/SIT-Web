@@ -1,6 +1,7 @@
 """Database-managed Discord invitations and immutable click-attribution records."""
 import re
 import time
+from app.models.record_ids import create_record_table, migrate_record_ids, new_record_id
 
 ROLES = ('訪客', '一般成員', '正規成員')
 DEFAULT_INVITATIONS = (
@@ -31,6 +32,7 @@ def ensure_schema(db):
     A write lock prevents competing first requests from seeding partial schemas.
     """
     with db.transaction(immediate=True) as tx:
+        migrate_record_ids(tx)
         first_setup = not tx.table_exists('invitation_url')
         tx.execute('''CREATE TABLE IF NOT EXISTS invitation_url (
             code TEXT NOT NULL UNIQUE,
@@ -38,17 +40,7 @@ def ensure_schema(db):
             description TEXT NOT NULL,
             isExpired INTEGER NOT NULL DEFAULT 0 CHECK (isExpired IN (0, 1))
         )''')
-        tx.execute('''CREATE TABLE IF NOT EXISTS invitation_record (
-            id INTEGER PRIMARY KEY,
-            requestId TEXT NOT NULL UNIQUE,
-            visitorId TEXT NOT NULL,
-            invitationCode TEXT NOT NULL,
-            role TEXT NOT NULL,
-            administratorId TEXT,
-            administratorUsername TEXT,
-            clickedAt REAL NOT NULL,
-            eventType TEXT NOT NULL DEFAULT 'click' CHECK (eventType = 'click')
-        )''')
+        create_record_table(tx, 'invitation_record')
         columns = {column['name'] for column in tx.query('PRAGMA table_info(invitation_record)')}
         for old, new in (
             ('request_id', 'requestId'), ('visitor_id', 'visitorId'),
@@ -89,7 +81,9 @@ def record_click(db, role, visitor_id, request_id, administrator=None):
             if row['invitationCode'] != invitation['code']:
                 raise InvitationError('邀請已更新，請重新選擇。', 409)
             return {'id': row['id'], 'code': row['invitationCode']}
-        record_id = tx.insert('invitation_record', {
+        record_id = new_record_id()
+        tx.insert('invitation_record', {
+            'id': record_id,
             'requestId': request_id, 'visitorId': visitor_id,
             'invitationCode': invitation['code'], 'role': role,
             'administratorId': admin_id,

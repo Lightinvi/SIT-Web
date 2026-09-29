@@ -12,6 +12,7 @@ services:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
     volumes:
       - storage:/app/storage
+      - /etc/localtime:/etc/localtime:ro
     expose:
       - "8000"
     restart: unless-stopped

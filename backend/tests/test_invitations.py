@@ -95,7 +95,7 @@ class InvitationTests(unittest.TestCase):
         response = self.client.get('/api/invitations')
         self.assertEqual(response.json['invitations'][0]['description'], '更新的描述')
         self.assertEqual(self.click().json['url'], 'https://discord.com/invite/newGuest')
-        self.assertEqual(self.db.select('invitation_record', order_by='id')[0]['invitationCode'], 'rnTHPNfjMx')
+        self.assertEqual(self.db.select('invitation_record', order_by='rowid')[0]['invitationCode'], 'rnTHPNfjMx')
         self.db.delete('invitation_url', {'role': ROLES[0]})
         self.client.get('/api/invitations')
         self.assertEqual(self.db.select('invitation_url', {'role': ROLES[0]}), [])
@@ -177,15 +177,17 @@ class InvitationTests(unittest.TestCase):
             })
         ensure_schema(self.db)
         ensure_schema(self.db)
+        migrated_id = self.db.select('invitation_record')[0]['id']
+        self.assertEqual(uuid.UUID(migrated_id).version, 4)
         expected = {
-            'id': 42, 'requestId': request_id, 'visitorId': 'browser',
+            'id': migrated_id, 'requestId': request_id, 'visitorId': 'browser',
             'invitationCode': 'UDNkUgQ4Yy', 'role': ROLES[2],
             'administratorId': '12345', 'administratorUsername': 'lightinvi',
             'clickedAt': 123456.0, 'eventType': 'click',
         }
         self.assertEqual(self.db.select('invitation_record'), [expected])
         retry = record_click(self.db, ROLES[2], 'browser', request_id, self.admin['user'])
-        self.assertEqual(retry, {'id': 42, 'code': 'UDNkUgQ4Yy'})
+        self.assertEqual(retry, {'id': migrated_id, 'code': 'UDNkUgQ4Yy'})
         with self.assertRaises(sqlite3.IntegrityError):
             self.db.insert('invitation_record', {**expected, 'id': 43})
         with self.assertRaises(sqlite3.IntegrityError):

@@ -20,7 +20,7 @@
 
 | `invitation_record` 欄位 | 用途 |
 | --- | --- |
-| `id` | 點擊紀錄 ID |
+| `id` | UUID4 點擊紀錄 ID |
 | `requestId` | 本次操作 UUID；同一次網路重試不重複計數 |
 | `visitorId` | 瀏覽器 session 的隨機識別碼，不是 Discord 使用者 ID |
 | `invitationCode` | 點擊當下的邀請 code 快照 |

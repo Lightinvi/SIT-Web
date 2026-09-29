@@ -1,19 +1,31 @@
 """Persistent profiles of users who have passed Discord guild verification."""
 from app.sql import SQLSession
 
+PROFILE_COLUMNS = {
+    'user_id': 'userId', 'username': 'username', 'display_name': 'displayName',
+    'created_at': 'createdAt', 'last_login_at': 'lastLoginAt',
+    'global_name': 'globalName', 'nickname': 'nickname',
+    'avatar_url': 'avatarUrl', 'guild_joined_at': 'guildJoinedAt',
+}
+
 
 def ensure_member_schema(tx: SQLSession) -> None:
+    """Rename legacy columns and add missing profile fields without deleting records."""
     # Discord snowflakes remain strings, avoiding integer precision loss in clients.
-    """Create the member table and add missing profile columns without deleting records."""
     tx.execute('''CREATE TABLE IF NOT EXISTS member (
-        user_id TEXT PRIMARY KEY NOT NULL,
+        userId TEXT PRIMARY KEY NOT NULL,
         username TEXT,
-        display_name TEXT,
-        created_at REAL NOT NULL,
-        last_login_at REAL NOT NULL
+        displayName TEXT,
+        createdAt REAL NOT NULL,
+        lastLoginAt REAL NOT NULL
     )''')
     columns = {row['name'] for row in tx.query('PRAGMA table_info(member)')}
-    for column in ('global_name', 'nickname', 'avatar_url', 'guild_joined_at'):
+    for old, new in PROFILE_COLUMNS.items():
+        if old != new and old in columns:
+            tx.execute(f'ALTER TABLE member RENAME COLUMN "{old}" TO "{new}"')
+            columns.remove(old)
+            columns.add(new)
+    for column in ('globalName', 'nickname', 'avatarUrl', 'guildJoinedAt'):
         if column not in columns:
             tx.execute(f'ALTER TABLE member ADD COLUMN {column} TEXT')
 
@@ -26,28 +38,28 @@ def record_login(tx: SQLSession, user: dict, logged_in_at: float) -> None:
     """
     ensure_member_schema(tx)
     tx.execute('''INSERT INTO member
-        (user_id, username, display_name, created_at, last_login_at,
-         global_name, nickname, avatar_url, guild_joined_at)
+        (userId, username, displayName, createdAt, lastLoginAt,
+         globalName, nickname, avatarUrl, guildJoinedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET
+        ON CONFLICT(userId) DO UPDATE SET
             username = excluded.username,
-            display_name = excluded.display_name,
-            last_login_at = excluded.last_login_at,
-            global_name = excluded.global_name,
+            displayName = excluded.displayName,
+            lastLoginAt = excluded.lastLoginAt,
+            globalName = excluded.globalName,
             nickname = excluded.nickname,
-            avatar_url = excluded.avatar_url,
-            guild_joined_at = excluded.guild_joined_at
+            avatarUrl = excluded.avatarUrl,
+            guildJoinedAt = excluded.guildJoinedAt
     ''', (user['id'], user.get('username'), user.get('name'), logged_in_at, logged_in_at,
           user.get('global_name'), user.get('nickname'), user.get('avatar_url'), user.get('guild_joined_at')))
 
 
 def get_member(db, user_id):
-    """Return the stored profile for a Discord ID, or None if the table or row is absent."""
-    if not db.table_exists('member'):
-        return None
-    rows = db.select('member', {'user_id': user_id})
+    """Migrate stored profiles and return the existing snake_case API representation."""
+    with db.transaction(immediate=True) as tx:
+        if not tx.table_exists('member'):
+            return None
+        ensure_member_schema(tx)
+        rows = tx.select('member', {'userId': user_id})
     if not rows:
         return None
-    fields = ('user_id', 'username', 'display_name', 'created_at', 'last_login_at',
-              'global_name', 'nickname', 'avatar_url', 'guild_joined_at')
-    return {key: rows[0].get(key) for key in fields}
+    return {key: rows[0].get(column) for key, column in PROFILE_COLUMNS.items()}

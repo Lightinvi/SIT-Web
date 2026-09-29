@@ -5,13 +5,18 @@ import teamLogo from './assets/SIT隊徽(去背).png'
 import './App.css'
 import Administrators from './components/Administrators'
 import Account from './components/Account'
+import type { LoginSession } from './components/Account'
+import Home from './pages/Home'
+import DailySpinner from './pages/DailySpinner'
 import Profile from './pages/Profile'
+import ShardHistory from './pages/ShardHistory'
 import InvitationDialog from './components/InvitationDialog'
 import { Link, Route, Routes } from 'react-router-dom'
 
 /** Render the shared navigation and footer around the active client-side route. */
 function App() {
   const [invitationOpen, setInvitationOpen] = useState(false)
+  const [account, setAccount] = useState<LoginSession | null>(null)
   return (
     <>
       <a className="skip-link" href="#main-content">跳至主要內容</a>
@@ -20,12 +25,12 @@ function App() {
           <img src={teamLogo} alt="" />
           <span>SIT<span className="brand-subtitle">STAR IMPACT TEAM</span></span>
         </Link>
-        <nav aria-label="帳號"><Account /></nav>
+        <nav aria-label="帳號"><Account onSessionChange={setAccount} /></nav>
       </header>
 
       <main id="main-content">
         <Routes>
-          <Route path="/" element={<>
+          <Route path="/" element={<Home account={account}>
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-copy">
             <h1 id="hero-title">Star Impact Team</h1>
@@ -50,8 +55,10 @@ function App() {
 
         <Administrators />
 
-          </>} />
+          </Home>} />
+          <Route path="/daily-spinner" element={<DailySpinner />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/star-shards" element={<ShardHistory />} />
           <Route path="*" element={<section className="profile-page"><h1>找不到此頁面</h1><Link to="/">返回首頁</Link></section>} />
         </Routes>
 

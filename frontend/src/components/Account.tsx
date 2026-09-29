@@ -1,16 +1,18 @@
 /** Header authentication controls backed by the server-side login session. */
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, LogIn, LogOut, UserRound } from 'lucide-react'
+import { ChevronDown, History, LogIn, LogOut, UserRound } from 'lucide-react'
+import StarShard from './StarShard'
 
 import { Link, useNavigate } from 'react-router-dom'
 
 import Avatar from './Avatar'
 
 /** Authentication response; identity and logout token are present for signed-in users. */
-type LoginSession = { authenticated: boolean; user?: { name: string; avatar_url?: string | null }; csrf_token?: string }
+export type LoginSession = { authenticated: boolean; user?: { id?: string; name: string; avatar_url?: string | null }; csrf_token?: string }
 const errors: Record<string, string> = {
   not_configured: 'Discord 登入尚未設定完成，請稍後再試。',
   not_member: '僅限 SIT Discord 群組成員登入，請先加入社群。',
+  insufficient_role: '需具有 SIT Discord 群組的成員、正規成員或管理員身分組才能登入。',
   pending_member: '請先在 Discord 完成群組的成員審核。',
   invalid_state: '登入請求已失效，請重新登入。',
   cancelled: '已取消 Discord 登入。',
@@ -18,7 +20,7 @@ const errors: Record<string, string> = {
 }
 
 /** Load session state and render login, profile navigation, logout, and OAuth errors. */
-export default function Account() {
+export default function Account({ onSessionChange }: { onSessionChange: (session: LoginSession) => void }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const dropdown = useRef<HTMLDivElement>(null)
@@ -42,11 +44,11 @@ export default function Account() {
     let disposed = false
     fetch('/api/auth/session', { signal: controller.signal, cache: 'no-store' })
       .then(response => { if (!response.ok) throw new Error(); return response.json() })
-      .then(data => { if (!disposed) setAccount(data) })
-      .catch(() => { if (!disposed) setMessage('無法確認登入狀態，請稍後再試。') })
+      .then(data => { if (!disposed) { setAccount(data); onSessionChange(data) } })
+      .catch(() => { if (!disposed) { setMessage('無法確認登入狀態，請稍後再試。'); onSessionChange({ authenticated: false }) } })
       .finally(() => { window.clearTimeout(timeout); if (!disposed) setLoading(false) })
     return () => { disposed = true; controller.abort(); window.clearTimeout(timeout) }
-  }, [])
+  }, [onSessionChange])
 
   useEffect(() => {
     if (!open) return
@@ -74,6 +76,7 @@ export default function Account() {
       const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': account.csrf_token || '' } })
       if (!response.ok) throw new Error()
       setAccount({ authenticated: false })
+      onSessionChange({ authenticated: false })
       navigate('/', { replace: true })
       setMessage('')
     } catch { setMessage('登出失敗，請稍後再試。') }
@@ -81,6 +84,7 @@ export default function Account() {
   }
 
   return <div className="account-area">
+    {!loading && account.authenticated && <StarShard csrf={account.csrf_token || ''} />}
     {loading ? <span className="account-loading" role="status">處理中…</span> : account.authenticated ?
       <div className="account-dropdown" ref={dropdown} onBlur={event => {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
@@ -90,6 +94,7 @@ export default function Account() {
         </button>
         {open && <div className="account-actions" id="account-actions">
           <Link to="/profile" onClick={() => setOpen(false)}><UserRound size={17} aria-hidden="true" />個人資料</Link>
+          <Link to="/star-shards" onClick={() => setOpen(false)}><History size={17} aria-hidden="true" />碎片紀錄</Link>
           <button onClick={logout}><LogOut size={17} aria-hidden="true" />登出</button>
         </div>}
       </div> :

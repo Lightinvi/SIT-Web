@@ -1,0 +1,57 @@
+.shard-wallet { position: relative; min-width: 0; flex-shrink: 0; }
+.shard-balance { display: flex; align-items: center; gap: 5px; background: transparent; border: 1px solid #dadde2; border-radius: 6px; padding: 5px 8px; min-height: 42px; font: inherit; font-size: 14px; color: #263a42; cursor: pointer; max-width: 210px; }
+.shard-balance img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
+.shard-balance span { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.shard-actions { position: absolute; top: calc(100% + 8px); right: 0; width: 180px; padding: 6px; background: white; border: 1px solid #d9dfe2; border-radius: 6px; box-shadow: 0 6px 24px #0002; z-index: 110; }
+.shard-actions a, .shard-actions button { display: flex; gap: 10px; align-items: center; padding: 12px; width: 100%; border: 0; background: none; text-decoration: none; color: #263a42; font: inherit; cursor: pointer; }
+.shard-actions a:hover, .shard-actions button:hover { background: #edf5f3; }
+.shard-actions p { font-size: 13px; padding: 8px; }
+.shard-dialog { width: min(460px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; margin: auto; padding: 24px; border: 1px solid #d9dfe2; border-radius: 8px; background: #fff; color: #263a42; }
+.shard-dialog::backdrop { background: #17242b88; }
+.shard-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.shard-dialog h2 { font-size: 22px; letter-spacing: 0; margin: 0; }
+.shard-dialog label { display: block; font-size: 14px; margin: 18px 0 7px; }
+.shard-dialog input, .shard-dialog select { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #b8c5c9; border-radius: 5px; padding: 10px; background: white; color: #263a42; font: inherit; }
+.shard-dialog .shard-member-select input { border: 0; border-radius: 0; padding: 0; box-shadow: none; outline: none; background: transparent; }
+.shard-member-select { min-width: 0; font-size: 16px; }
+.shard-dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding: 24px 0 0; margin: 0; min-height: 0; border: 0; }
+.shard-dialog button, .shard-more, .shard-error button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; min-height: 42px; border: 1px solid #bac7ca; border-radius: 5px; background: white; color: #263a42; font: inherit; cursor: pointer; }
+.shard-dialog .shard-primary { background: #176a61; color: white; border-color: #176a61; }
+.shard-dialog .shard-icon-button { width: 40px; height: 40px; flex-shrink: 0; padding: 8px; }
+.shard-dialog button:disabled, .shard-more:disabled { opacity: .5; cursor: not-allowed; }
+.shard-muted { color: #626e77; font-size: 14px; margin: 12px 0; overflow-wrap: anywhere; }
+.shard-transfer-amount { font-size: 28px; font-weight: 700; overflow-wrap: anywhere; }
+.shard-transfer-amount span { font-size: 16px; font-weight: 400; }
+.shard-recipient-name { overflow-wrap: anywhere; }
+.shard-error { color: #ab3434; padding-block: 12px; overflow-wrap: anywhere; }
+.shard-error a { margin-left: 12px; }
+.shard-history { max-width: 860px; margin: auto; padding: 40px 0 64px; min-height: 65vh; }
+.shard-history h1 { display: flex; align-items: center; gap: 12px; font-size: 28px; letter-spacing: 0; margin-top: 24px; }
+.shard-history h1 img { width: 42px; height: 42px; object-fit: contain; }
+.shard-records { list-style: none; padding: 0; margin: 24px 0; }
+.shard-records li { padding: 22px 0; border-top: 1px solid #d8dfe0; }
+.shard-record-main, .shard-record-meta { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.shard-record-main { font-size: 17px; overflow-wrap: anywhere; }
+.shard-record-main > span { font-weight: 700; font-variant-numeric: tabular-nums; }
+.shard-record-meta { margin-top: 10px; font-size: 13px; color: #626e77; }
+.shard-credit { color: #147162; }
+.shard-debit { color: #b0364b; }
+.shard-records dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: 13px; margin: 16px 0 0; }
+.shard-records dl > div { display: flex; gap: 10px; min-width: 0; }
+.shard-records dt { color: #626e77; flex-shrink: 0; }
+.shard-records dd { margin: 0; overflow-wrap: anywhere; }
+.shard-more { margin: 0 auto; display: flex; }
+.shard-empty { padding: 40px 0; color: #626e77; }
+@media (max-width: 600px) {
+  .topbar .brand-subtitle { display: none; }
+  .topbar .account-name { display: none; }
+  .shard-balance { min-width: 64px; max-width: 112px; font-size: 12px; padding: 4px; }
+  .shard-balance img { width: 24px; height: 24px; }
+  .shard-actions { right: -40px; }
+  .shard-history h1 { font-size: 24px; }
+  .shard-records dl { grid-template-columns: 1fr; }
+  .shard-dialog { padding: 18px; }
+}
+@media (max-width: 380px) {
+  .topbar .brand > span { display: none; }
+}

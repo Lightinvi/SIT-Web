@@ -43,7 +43,8 @@ def authenticate(code, config):
     """Exchange an OAuth code and verify the user's current membership in the guild.
 
     Return identity, display-name, avatar, and join-date fields without tokens.
-    Reject mismatched identities and memberships awaiting screening.
+    Reject mismatched identities, pending screening, and missing login roles.
+    Check live OAuth membership, never the public member cache or saved profile.
     """
     credentials = discord_request('oauth2/token', data={
         'client_id': config['DISCORD_CLIENT_ID'],
@@ -61,6 +62,11 @@ def authenticate(code, config):
         raise OAuthError('not_member')
     if member.get('pending'):
         raise OAuthError('pending_member')
+    roles = member.get('roles')
+    if not isinstance(roles, list) or not all(isinstance(role, str) for role in roles):
+        raise OAuthError('insufficient_role')
+    if not set(roles).intersection(config.get('DISCORD_LOGIN_ROLE_IDS', ())):
+        raise OAuthError('insufficient_role')
     avatar = member.get('avatar')
     if avatar:
         avatar_url = f"https://cdn.discordapp.com/guilds/{guild}/users/{user['id']}/avatars/{avatar}.png?size=256"

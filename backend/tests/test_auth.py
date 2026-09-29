@@ -56,7 +56,7 @@ class AuthTests(unittest.TestCase):
 
     def test_nonmember_and_upstream_failure_never_login(self):
         """Ensure membership failures and Discord outages cannot establish a login."""
-        for reason in ('not_member', 'pending_member', 'discord_unavailable'):
+        for reason in ('not_member', 'pending_member', 'insufficient_role', 'discord_unavailable'):
             with self.subTest(reason=reason):
                 state = self.start()
                 with patch('app.api.auth.authenticate', side_effect=OAuthError(reason)):
@@ -126,13 +126,55 @@ class AuthTests(unittest.TestCase):
         """Verify live guild membership uses the OAuth bearer token without returning it."""
         with patch('app.services.oauth.discord_request', side_effect=[
             {'access_token': 'private-token'}, {'id': '123', 'username': 'name'},
-            {'user': {'id': '123'}, 'nick': '群組暱稱'},
+            {'user': {'id': '123'}, 'nick': '群組暱稱', 'roles': ['578156037589172244']},
         ]) as request:
             result = authenticate('code', self.app.config)
             self.assertEqual(result['name'], '群組暱稱')
             self.assertEqual(request.call_args.args[0], 'users/@me/guilds/510386488639488001/member')
             self.assertEqual(request.call_args.kwargs, {'token': 'private-token'})
             self.assertNotIn('private-token', str(result))
+
+    def test_each_login_role_accepts_live_member(self):
+        """Allow each specified role independently through OAuth and profile persistence."""
+        for role in ('578156037589172244', '749803225275695156', '513295891482804250'):
+            with self.subTest(role=role), patch('app.services.oauth.discord_request', side_effect=[
+                {'access_token': 'token'}, {'id': '123', 'username': 'qualified'},
+                {'user': {'id': '123'}, 'roles': [role]},
+            ]):
+                self.assertEqual(self.callback(self.start()).location, '/')
+                self.assertTrue(self.client.get('/api/auth/session').json['authenticated'])
+                self.assertEqual(len(self.app.extensions['sql'].select('member')), 1)
+
+    def test_missing_or_unrelated_roles_never_create_member(self):
+        """Deny visitors and malformed membership roles before creating a member or session."""
+        for roles in (None, [], ['unrelated-role'], '578156037589172244', [None], [['578156037589172244']]):
+            with self.subTest(roles=roles), patch('app.services.oauth.discord_request', side_effect=[
+                {'access_token': 'token'}, {'id': '123', 'username': 'visitor'},
+                {'user': {'id': '123'}, 'roles': roles},
+            ]):
+                self.assertIn('insufficient_role', self.callback(self.start()).location)
+                self.assertFalse(self.client.get('/api/auth/session').json['authenticated'])
+                self.assertFalse(self.app.extensions['sql'].table_exists('member'))
+                self.assertEqual(self.app.extensions['sql'].select('login_sessions'), [])
+
+    def test_role_loss_or_departure_preserves_existing_profile(self):
+        """Recheck returning members live, retaining their saved profile after denial."""
+        with patch('app.services.oauth.discord_request', side_effect=[
+            {'access_token': 'token'}, {'id': '123', 'username': 'original'},
+            {'user': {'id': '123'}, 'roles': ['578156037589172244']},
+        ]):
+            self.callback(self.start())
+        db = self.app.extensions['sql']
+        original = db.select('member')
+        for membership, reason in (({'user': {'id': '123'}, 'roles': []}, 'insufficient_role'),
+                                   (OAuthError('not_member'), 'not_member')):
+            with self.subTest(reason=reason), patch('app.services.oauth.discord_request', side_effect=[
+                {'access_token': 'token'}, {'id': '123', 'username': 'changed'}, membership,
+            ]):
+                self.assertIn(reason, self.callback(self.start()).location)
+                self.assertFalse(self.client.get('/api/auth/session').json['authenticated'])
+                self.assertEqual(db.select('member'), original)
+                self.assertEqual(db.select('login_sessions'), [])
 
     def test_pending_or_mismatched_member_rejected(self):
         """Reject pending guild screening and mismatched Discord user identities."""
@@ -163,20 +205,20 @@ class AuthTests(unittest.TestCase):
         with patch('app.api.auth.authenticate', return_value=user):
             self.callback(self.start())
         first = db.select('member')[0]
-        self.assertEqual(first['user_id'], user['id'])
+        self.assertEqual(first['userId'], user['id'])
         self.assertEqual(first['username'], 'original')
-        self.assertEqual(first['display_name'], '原名稱')
-        self.assertEqual(first['created_at'], first['last_login_at'])
-        later = first['created_at'] + 60
+        self.assertEqual(first['displayName'], '原名稱')
+        self.assertEqual(first['createdAt'], first['lastLoginAt'])
+        later = first['createdAt'] + 60
         with patch('app.api.auth.authenticate', return_value={**user, 'username': 'updated', 'name': '新名稱'}):
             with patch('app.api.auth.time.time', return_value=later):
                 self.callback(self.start())
         rows = db.select('member')
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]['created_at'], first['created_at'])
-        self.assertEqual(rows[0]['last_login_at'], later)
+        self.assertEqual(rows[0]['createdAt'], first['createdAt'])
+        self.assertEqual(rows[0]['lastLoginAt'], later)
         self.assertEqual(rows[0]['username'], 'updated')
-        self.assertEqual(rows[0]['display_name'], '新名稱')
+        self.assertEqual(rows[0]['displayName'], '新名稱')
         with patch('app.api.auth.time.time', return_value=later):
             csrf = self.client.get('/api/auth/session').json['csrf_token']
             self.client.post('/api/auth/logout', headers={'X-CSRF-Token': csrf})
@@ -214,8 +256,8 @@ class AuthTests(unittest.TestCase):
         with patch('app.api.auth.authenticate', return_value={'id': '123', 'username': 'alice', 'name': 'Alice'}):
             self.callback(self.start())
         db = self.app.extensions['sql']
-        db.insert('member', {'user_id': '456', 'username': 'bob', 'display_name': 'Bob',
-                             'created_at': 1, 'last_login_at': 1})
+        db.insert('member', {'userId': '456', 'username': 'bob', 'displayName': 'Bob',
+                             'createdAt': 1, 'lastLoginAt': 1})
         response = self.client.get('/api/auth/profile?user_id=456')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
@@ -230,7 +272,7 @@ class AuthTests(unittest.TestCase):
         with patch('app.api.auth.authenticate', return_value={'id': '123', 'name': 'Alice'}):
             self.callback(self.start())
         db = self.app.extensions['sql']
-        db.delete('member', {'user_id': '123'})
+        db.delete('member', {'userId': '123'})
         self.assertEqual(self.client.get('/api/auth/profile').status_code, 404)
         db.execute('UPDATE login_sessions SET expires=0')
         self.assertEqual(self.client.get('/api/auth/profile').status_code, 401)
@@ -243,7 +285,7 @@ class AuthTests(unittest.TestCase):
         with patch('app.api.auth.authenticate', return_value=user):
             self.callback(self.start())
         db = self.app.extensions['sql']
-        db.update('member', {'avatar_url': 'https://cdn.discordapp.com/embed/avatars/1.png'}, {'user_id': '123'})
+        db.update('member', {'avatarUrl': 'https://cdn.discordapp.com/embed/avatars/1.png'}, {'userId': '123'})
         profile = self.client.get('/api/auth/profile').json['member']
         header = self.client.get('/api/auth/session').json['user']
         self.assertEqual(header['avatar_url'], profile['avatar_url'])
@@ -258,6 +300,27 @@ class AuthTests(unittest.TestCase):
         with patch('app.api.auth.authenticate', return_value={'id': '123', 'name': 'Updated', 'avatar_url': 'avatar'}):
             self.callback(self.start())
         row = db.select('member')[0]
-        self.assertEqual(row['created_at'], 1)
-        self.assertEqual(row['avatar_url'], 'avatar')
+        self.assertEqual(row['createdAt'], 1)
+        self.assertEqual(row['avatarUrl'], 'avatar')
         self.assertEqual(len(db.select('member')), 1)
+
+    def test_full_legacy_profile_migrates_on_read(self):
+        """Preserve all legacy values and API keys across repeated read migrations."""
+        from app.models.member import get_member, PROFILE_COLUMNS
+        db = self.app.extensions['sql']
+        db.execute('''CREATE TABLE member (
+            user_id TEXT PRIMARY KEY NOT NULL, username TEXT, display_name TEXT,
+            created_at REAL NOT NULL, last_login_at REAL NOT NULL,
+            global_name TEXT, nickname TEXT, avatar_url TEXT, guild_joined_at TEXT
+        )''')
+        original = dict(zip(PROFILE_COLUMNS, (
+            '123456789012345678', 'alice', 'Alice', 1.0, 2.0,
+            'Global', None, 'https://example.com/avatar.png', '2020-01-01',
+        )))
+        db.insert('member', original)
+        self.assertEqual(get_member(db, original['user_id']), original)
+        self.assertEqual(get_member(db, original['user_id']), original)
+        self.assertEqual(db.select('member'), [
+            {column: original[key] for key, column in PROFILE_COLUMNS.items()}
+        ])
+        self.assertIsNone(get_member(db, 'missing'))

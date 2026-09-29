@@ -80,6 +80,11 @@ Place domain logic in `services`, persistence in `models`, and helpers in `utils
 
 ## Verification
 
+Feature documentation:
+
+- [Star Shard ledger and transfers](docs/star-shards.md)
+- [Daily spinner, reward odds, and host-timezone midnight reset](docs/daily-spinner.md)
+
 ```bash
 cd backend
 ../.venv/bin/python -m unittest discover -s tests -v
