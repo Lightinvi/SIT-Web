@@ -233,8 +233,11 @@ membership screening cannot log in. OAuth tokens are used only during verificati
 and are not persisted or sent to the browser. See
 [Discord OAuth2 documentation](https://docs.discord.com/developers/topics/oauth2).
 
-Successful logins create an 8-hour server-side session in the local SQL database;
+Successful logins create a 7-day server-side session in the local SQL database;
 the signed HttpOnly, SameSite=Lax cookie holds a random session identifier.
+Both lifetimes use Flask's `PERMANENT_SESSION_LIFETIME` setting. The database
+deadline is fixed at login and is not extended by activity. Existing sessions
+retain their saved expiration; log in again to receive the new 7-day lifetime.
 `GET /api/auth/session` returns the login status and a logout CSRF token.
 `POST /api/auth/logout` requires that token in `X-CSRF-Token` and invalidates the
 server-side session. Membership is checked at each login, not continuously during

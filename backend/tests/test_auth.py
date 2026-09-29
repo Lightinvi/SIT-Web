@@ -1,3 +1,4 @@
+"""Exercise OAuth verification, profile persistence, and server-side session boundaries."""
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import time
@@ -11,7 +12,9 @@ from app.services.oauth import OAuthError, authenticate
 
 
 class AuthTests(unittest.TestCase):
+    """Validate authentication flows using a temporary database and mocked Discord."""
     def setUp(self):
+        """Create a temporary database and configured app without contacting Discord."""
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.app = create_app({'TESTING': True, 'SECRET_KEY': 'test-secret',
@@ -21,6 +24,7 @@ class AuthTests(unittest.TestCase):
         self.client = self.app.test_client()
 
     def start(self):
+        """Begin login, assert the authorization scope, and return the generated state."""
         response = self.client.get('/api/auth/discord/login')
         self.assertEqual(response.status_code, 302)
         query = parse_qs(urlparse(response.location).query)
@@ -28,9 +32,11 @@ class AuthTests(unittest.TestCase):
         return query['state'][0]
 
     def callback(self, state):
+        """Submit a test authorization code with the supplied callback state."""
         return self.client.get('/api/auth/discord/callback', query_string={'state': state, 'code': 'test-code'})
 
     def test_success_session_logout_and_replay(self):
+        """Verify login, CSRF-protected logout, and rejection of a consumed OAuth state."""
         state = self.start()
         with patch('app.api.auth.authenticate', return_value={'id': '123', 'name': '隊員'}) as auth:
             self.assertEqual(self.callback(state).location, '/')
@@ -49,6 +55,7 @@ class AuthTests(unittest.TestCase):
             auth.assert_called_once()
 
     def test_nonmember_and_upstream_failure_never_login(self):
+        """Ensure membership failures and Discord outages cannot establish a login."""
         for reason in ('not_member', 'pending_member', 'discord_unavailable'):
             with self.subTest(reason=reason):
                 state = self.start()
@@ -57,6 +64,7 @@ class AuthTests(unittest.TestCase):
                 self.assertFalse(self.client.get('/api/auth/session').json['authenticated'])
 
     def test_state_mismatch_expiration_and_cancellation(self):
+        """Reject invalid or expired states and handle consent cancellation before authentication."""
         state = self.start()
         with patch('app.api.auth.authenticate') as auth:
             self.assertIn('invalid_state', self.callback('wrong').location)
@@ -69,17 +77,53 @@ class AuthTests(unittest.TestCase):
             auth.assert_not_called()
 
     def test_session_expiration(self):
+        """Reject an expired login and remove its authenticated browser state."""
         state = self.start()
         with patch('app.api.auth.authenticate', return_value={'id': '123'}):
             self.callback(state)
         self.app.extensions['sql'].execute('UPDATE login_sessions SET expires=?', (time.time() - 1,))
         self.assertFalse(self.client.get('/api/auth/session').json['authenticated'])
 
+    def test_session_lasts_seven_days_without_sliding_database_expiry(self):
+        """Keep a login valid for seven days and reject it at the exact deadline."""
+        logged_in_at = int(time.time())
+        lifetime = 7 * 24 * 60 * 60
+        with patch('app.api.auth.time.time', return_value=logged_in_at):
+            with patch('app.api.auth.authenticate', return_value={'id': '123'}):
+                self.callback(self.start())
+        db = self.app.extensions['sql']
+        deadline = logged_in_at + lifetime
+        self.assertEqual(db.select('login_sessions')[0]['expires'], deadline)
+        self.assertEqual(self.app.permanent_session_lifetime.total_seconds(), lifetime)
+        cookie = self.client.get_cookie(self.app.config['SESSION_COOKIE_NAME'])
+        self.assertEqual(cookie.expires.timestamp(), deadline)
+        for elapsed in (8 * 60 * 60 + 1, lifetime - 1):
+            with self.subTest(elapsed=elapsed), patch('app.api.auth.time.time', return_value=logged_in_at + elapsed):
+                self.assertTrue(self.client.get('/api/auth/session').json['authenticated'])
+                self.assertEqual(db.select('login_sessions')[0]['expires'], deadline)
+        with patch('app.api.auth.time.time', return_value=deadline):
+            self.assertFalse(self.client.get('/api/auth/session').json['authenticated'])
+        self.assertEqual(db.select('login_sessions'), [])
+
+    def test_database_session_uses_cookie_lifetime_configuration(self):
+        """Use Flask's configured lifetime for both cookie and database expiration."""
+        self.app.config['PERMANENT_SESSION_LIFETIME'] = 3600
+        logged_in_at = int(time.time())
+        with patch('app.api.auth.time.time', return_value=logged_in_at):
+            with patch('app.api.auth.authenticate', return_value={'id': '123'}):
+                self.callback(self.start())
+        expected = logged_in_at + 3600
+        self.assertEqual(self.app.extensions['sql'].select('login_sessions')[0]['expires'], expected)
+        cookie = self.client.get_cookie(self.app.config['SESSION_COOKIE_NAME'])
+        self.assertEqual(cookie.expires.timestamp(), expected)
+
     def test_missing_configuration(self):
+        """Redirect to a configuration error when the OAuth secret is missing."""
         self.app.config['DISCORD_CLIENT_SECRET'] = ''
         self.assertIn('not_configured', self.client.get('/api/auth/discord/login').location)
 
     def test_membership_checked_live_with_oauth_token(self):
+        """Verify live guild membership uses the OAuth bearer token without returning it."""
         with patch('app.services.oauth.discord_request', side_effect=[
             {'access_token': 'private-token'}, {'id': '123', 'username': 'name'},
             {'user': {'id': '123'}, 'nick': '群組暱稱'},
@@ -91,6 +135,7 @@ class AuthTests(unittest.TestCase):
             self.assertNotIn('private-token', str(result))
 
     def test_pending_or_mismatched_member_rejected(self):
+        """Reject pending guild screening and mismatched Discord user identities."""
         for member in ({'user': {'id': '456'}}, {'user': {'id': '123'}, 'pending': True}):
             with patch('app.services.oauth.discord_request', side_effect=[
                 {'access_token': 'token'}, {'id': '123'}, member,
@@ -99,6 +144,7 @@ class AuthTests(unittest.TestCase):
                     authenticate('code', self.app.config)
 
     def test_bot_client_id_fallback_without_token_as_secret(self):
+        """Verify the bot application ID fallback never substitutes the bot token for a secret."""
         with patch.dict('os.environ', {'DISCORD_CLIENT_ID': '',
                 'DISCORD_BOT_CLIENT_ID': 'bot-application',
                 'DISCORD_CLIENT_SECRET': '', 'DISCORD_BOT_TOKEN': 'bot-only'}):
@@ -111,6 +157,7 @@ class AuthTests(unittest.TestCase):
             self.assertEqual(create_app().config['DISCORD_CLIENT_ID'], 'explicit')
 
     def test_member_created_and_updated_on_successful_login(self):
+        """Refresh profiles on login while preserving first-login time and records after logout."""
         db = self.app.extensions['sql']
         user = {'id': '123456789012345678', 'username': 'original', 'name': '原名稱'}
         with patch('app.api.auth.authenticate', return_value=user):
@@ -136,16 +183,19 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(len(db.select('member')), 1)
 
     def test_rejected_login_does_not_create_member(self):
+        """Ensure failed membership verification does not create a member record."""
         with patch('app.api.auth.authenticate', side_effect=OAuthError('not_member')):
             self.callback(self.start())
         self.assertFalse(self.app.extensions['sql'].table_exists('member'))
 
     def test_member_and_session_creation_roll_back_together(self):
+        """Roll back the member schema and profile when session persistence fails."""
         from app.sql import SQLSession
         import sqlite3
         state = self.start()
         insert = SQLSession.insert
         def fail_session(tx, table, values):
+            """Simulate a database failure only when inserting the login session."""
             if table == 'login_sessions':
                 raise sqlite3.OperationalError('simulated write failure')
             return insert(tx, table, values)
@@ -159,6 +209,7 @@ class AuthTests(unittest.TestCase):
         self.assertFalse(self.client.get('/api/auth/session').json['authenticated'])
 
     def test_profile_requires_session_and_only_returns_own_member(self):
+        """Require authentication and ignore attempts to request another member's profile."""
         self.assertEqual(self.client.get('/api/auth/profile').status_code, 401)
         with patch('app.api.auth.authenticate', return_value={'id': '123', 'username': 'alice', 'name': 'Alice'}):
             self.callback(self.start())
@@ -175,6 +226,7 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/auth/profile').status_code, 401)
 
     def test_profile_rejects_expired_session_and_handles_missing_record(self):
+        """Distinguish a missing member record from an expired login."""
         with patch('app.api.auth.authenticate', return_value={'id': '123', 'name': 'Alice'}):
             self.callback(self.start())
         db = self.app.extensions['sql']
@@ -184,6 +236,7 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/auth/profile').status_code, 401)
 
     def test_stored_avatar_used_by_header_and_profile(self):
+        """Verify the session header and profile use the same persisted avatar."""
         user = {'id': '123', 'name': 'Name', 'username': 'name',
                 'avatar_url': 'https://cdn.discordapp.com/embed/avatars/0.png',
                 'global_name': 'Global', 'nickname': 'Nick', 'guild_joined_at': '2020-01-01T00:00:00+00:00'}
@@ -198,6 +251,7 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(profile['nickname'], 'Nick')
 
     def test_legacy_member_schema_upgraded_without_data_loss(self):
+        """Upgrade older member tables while preserving their creation timestamps."""
         db = self.app.extensions['sql']
         db.execute('CREATE TABLE member (user_id TEXT PRIMARY KEY, username TEXT, display_name TEXT, created_at REAL NOT NULL, last_login_at REAL NOT NULL)')
         db.insert('member', {'user_id': '123', 'username': 'old', 'created_at': 1, 'last_login_at': 1})

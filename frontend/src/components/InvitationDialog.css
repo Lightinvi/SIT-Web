@@ -1,0 +1,41 @@
+.invitation-dialog { width: min(580px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 28px; overflow-y: auto; border: 1px solid #ddd7cd; border-radius: 8px; background: #fffdfa; color: #282620; box-shadow: 0 24px 80px #161c2940; letter-spacing: 0; }
+.invitation-dialog::backdrop { background: #18202499; }
+.invitation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+.invitation-heading p { font-size: 10px; color: #787166; margin: 0 0 7px; }
+.invitation-heading h2 { font-size: 25px; line-height: 1.4; letter-spacing: 0; margin: 0; }
+.invitation-close { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; background: transparent; border: 1px solid #ddd7cd; border-radius: 5px; color: #756d62; cursor: pointer; }
+.invitation-close:hover { background: #f1eee8; }
+.invitation-dialog button:focus-visible, .invitation-dialog input:focus-visible { outline: 3px solid #377f83; outline-offset: 3px; }
+.invitation-options { border: 0; padding: 0; margin: 0; min-width: 0; }
+.invitation-options legend { font-size: 12px; color: #756d62; padding: 0 0 12px; }
+.invitation-option { display: flex; gap: 14px; align-items: center; position: relative; border-top: 1px solid #e5dfd5; padding: 19px 10px; cursor: pointer; }
+.invitation-option:last-child { border-bottom: 1px solid #e5dfd5; }
+.invitation-option.selected { background: #edf4f2; }
+.invitation-option input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.invitation-option:has(input:focus-visible) { outline: 3px solid #377f83; outline-offset: -3px; }
+.invitation-role-icon { flex-shrink: 0; color: #32716c; }
+.invitation-option:nth-of-type(2) .invitation-role-icon { color: #987044; }
+.invitation-option:nth-of-type(3) .invitation-role-icon { color: #63628c; }
+.invitation-option-text { flex: 1; min-width: 0; }
+.invitation-option strong { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 650; flex-wrap: wrap; }
+.invitation-option-text > span { display: block; margin-top: 6px; font-size: 12px; line-height: 1.8; color: #6f6a62; overflow-wrap: anywhere; }
+.invitation-option small { font-size: 11px; color: #9b554e; font-weight: 400; }
+.invitation-option.expired { opacity: .65; cursor: not-allowed; }
+.invitation-check { display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; border: 1px solid #bab8ac; border-radius: 50%; color: white; }
+.selected .invitation-check { background: #32716c; border-color: #32716c; }
+.invitation-code { display: grid; gap: 8px; margin-top: 20px; }
+.invitation-code label { font-size: 12px; color: #615e55; }
+.invitation-code input { width: 100%; min-width: 0; height: 44px; border: 1px solid #cfcabd; border-radius: 5px; padding: 0 12px; background: white; color: #282620; font: inherit; font-size: 14px; }
+.invitation-footer { margin-top: 22px; }
+.invitation-footer p { font-size: 12px; color: #787166; line-height: 1.9; margin: 0 0 16px; }
+.invitation-footer p span { color: #3e6966; white-space: nowrap; }
+.invitation-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 46px; background: #326c67; color: white; border: 0; border-radius: 5px; font: inherit; font-size: 14px; cursor: pointer; }
+.invitation-submit:hover:not(:disabled) { background: #275953; }
+.invitation-submit:disabled { background: #e4e8e2; color: #69716a; cursor: not-allowed; }
+.invitation-error { margin: 16px 0 0; padding: 12px; background: #fcf0ed; color: #a34639; font-size: 12px; line-height: 1.7; }
+.invitation-loading, .invitation-empty { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 120px; font-size: 13px; color: #787166; }
+.invitation-retry { margin-top: 12px; padding: 8px 16px; background: white; border: 1px solid #cfcabd; border-radius: 5px; cursor: pointer; font: inherit; font-size: 12px; }
+.invitation-loading svg, .invitation-submit .lucide-loader-circle { animation: invitation-spin 1s linear infinite; }
+@keyframes invitation-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .invitation-loading svg, .invitation-submit .lucide-loader-circle { animation: none; } }
+@media (max-width: 480px) { .invitation-dialog { padding: 20px; } .invitation-option { gap: 10px; padding: 16px 4px; } .invitation-heading h2 { font-size: 23px; } }

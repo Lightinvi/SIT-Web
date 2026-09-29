@@ -1,17 +1,26 @@
+/** Fetch guild resources and derive the public administrator display list. */
 const guildId = '510386488639488001'
 
 // Match exact Discord role names or IDs; multiple entries use OR matching.
 const administratorRoles = ['513295891482804250']
 
+/** Discord guild membership fields needed for role filtering and avatar selection. */
 type Member = {
   nick?: string | null
   avatar?: string | null
   roles: string[]
   user: { id: string; username: string; global_name?: string | null; avatar?: string | null; bot?: boolean; discriminator?: string }
 }
+/** Discord role identity and ordering used to select a member's displayed role. */
 type Role = { id: string; name: string; permissions: string; position: number }
+/** Public administrator identity consumed by the homepage carousel. */
 export type Administrator = { id: string; name: string; username: string; avatar: string; role: string }
 
+/**
+ * Select non-bot members matching any configured role ID or exact role name.
+ * Use the highest-position matching role and prefer guild-specific names/avatars.
+ * Return identities sorted by display name using the Traditional Chinese locale.
+ */
 export function selectAdministrators(members: Member[], roles: Role[], roleIdentifiers: string[]): Administrator[] {
   const adminRoles = roles.filter(role => roleIdentifiers.includes(role.id) || roleIdentifiers.includes(role.name))
     .sort((a, b) => b.position - a.position)
@@ -31,6 +40,11 @@ export function selectAdministrators(members: Member[], roles: Role[], roleIdent
     }).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'))
 }
 
+/**
+ * Fetch members and roles concurrently through the backend's Discord cache.
+ * @param signal Shared cancellation signal for both requests.
+ * @throws When either request fails or the collection envelopes are invalid.
+ */
 export async function getAdministrators(signal: AbortSignal): Promise<Administrator[]> {
   const [membersResponse, rolesResponse] = await Promise.all([
     fetch('/api/discord/members', { signal }), fetch('/api/discord/roles', { signal }),

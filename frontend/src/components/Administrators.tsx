@@ -1,9 +1,11 @@
+/** Public Discord administrator carousel with keyboard, touch, and pause controls. */
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Pause, Play, ShieldCheck } from 'lucide-react'
 import { getAdministrators } from '../api/discord'
 import type { Administrator } from '../api/discord'
 import teamLogo from '../assets/SIT隊徽(去背).png'
 
+/** Load administrators and cycle slides while respecting focus and reduced motion. */
 export default function Administrators() {
   const [members, setMembers] = useState<Administrator[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -18,6 +20,7 @@ export default function Administrators() {
 
   useEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+    /** Synchronize carousel animation with changes to the OS motion preference. */
     const update = () => setReducedMotion(preference.matches)
     preference.addEventListener('change', update)
     return () => preference.removeEventListener('change', update)
@@ -70,6 +73,7 @@ export default function Administrators() {
     }
   }, [resetting])
 
+  /** Pause autoplay and move by a bounded slide offset unless a loop reset is active. */
   function move(step: number) {
     setPaused(true)
     if (resetting || index === members.length) return

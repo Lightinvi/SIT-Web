@@ -1,4 +1,6 @@
+"""Create isolated Flask applications with SQL, Discord, and authentication routes."""
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from flask import Flask
@@ -10,6 +12,11 @@ from app.extensions import init_extensions
 
 
 def create_app(config=None):
+    """Build an app from environment settings and optional mapping overrides.
+
+    Initialize a separate SQL manager and Discord cache service for this app.
+    Configuration overrides are applied before extensions and routes are registered.
+    """
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config.update(
@@ -20,10 +27,11 @@ def create_app(config=None):
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true",
-        PERMANENT_SESSION_LIFETIME=28800,
+        PERMANENT_SESSION_LIFETIME=timedelta(days=7),
         SQL_DATABASE_PATH=str(Path(os.environ.get("STORAGE_PATH", Path(__file__).resolve().parents[2] / "storage")) / "database" / "sit.sqlite3"),
         DISCORD_BOT_TOKEN=os.environ.get("DISCORD_BOT_TOKEN", ""),
         DISCORD_GUILD_ID="510386488639488001",
+        DISCORD_ADMIN_ROLE_IDS=('513295891482804250',),
         DISCORD_CACHE_PATH=str(Path(os.environ.get("STORAGE_PATH", Path(__file__).resolve().parents[2] / "storage")) / "cache"),
     )
     if config is not None:
@@ -38,9 +46,13 @@ def create_app(config=None):
     from app.api.discord import discord_bp
     from app.api.auth import auth_bp
     from app.api.users import users_bp
+    from app.api.invitations import invitations_bp
+    from app.invitations_cli import invitations_cli
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(users_bp, url_prefix="/api/users")
+    app.register_blueprint(invitations_bp, url_prefix="/api/invitations")
+    app.cli.add_command(invitations_cli)
 
     app.register_blueprint(discord_bp, url_prefix="/api/discord")
 

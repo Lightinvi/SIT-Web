@@ -1,14 +1,17 @@
+/** Application shell, community homepage, and account/profile routes. */
 import { ArrowUpRight } from 'lucide-react'
+import { useState } from 'react'
 import teamLogo from './assets/SIT隊徽(去背).png'
 import './App.css'
 import Administrators from './components/Administrators'
 import Account from './components/Account'
 import Profile from './pages/Profile'
+import InvitationDialog from './components/InvitationDialog'
 import { Link, Route, Routes } from 'react-router-dom'
 
-const discordUrl = 'https://discord.com/invite/VmeJwTv'
-
+/** Render the shared navigation and footer around the active client-side route. */
 function App() {
+  const [invitationOpen, setInvitationOpen] = useState(false)
   return (
     <>
       <a className="skip-link" href="#main-content">跳至主要內容</a>
@@ -25,12 +28,18 @@ function App() {
           <Route path="/" element={<>
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <h1 id="hero-title">網頁開發中</h1>
-            <p className="hero-description">SIT — Star Impact Team。<br /> </p>
-            <a className="primary-link" href={discordUrl} target="_blank" rel="noopener noreferrer">加入 Discord <ArrowUpRight size={20} aria-hidden="true" /></a>
+            <h1 id="hero-title">Star Impact Team</h1>
+            <p className="hero-description">
+                Star Impact Team（簡稱 SIT）是一個私人社群。
+                <br />
+                本網站提供社群成員參與活動、互動交流及各項娛樂功能。
+                <br />
+                您需要加入 Discord 群組並且擁有「成員」或以上身分組，才能使用本網站大部分功能。
+            </p>
+            <button type="button" className="primary-link invitation-trigger" onClick={() => setInvitationOpen(true)} aria-haspopup="dialog">加入 Discord <ArrowUpRight size={20} aria-hidden="true" /></button>
           </div>
 
-          <div className="hero-art" role="img" aria-label="SIT 隊徽，搭配橘金色星光與軌道">
+          <div className="hero-art" role="img" aria-label="SIT">
             <div className="orbit orbit-one" />
             <div className="orbit orbit-two" />
             <span className="star star-one">✦</span><span className="star star-two">✧</span><span className="star star-three">✦</span>
@@ -48,6 +57,7 @@ function App() {
 
       </main>
       <footer><Link to="/" className="footer-brand">SIT <span>STAR IMPACT TEAM</span></Link><span>© {new Date().getFullYear()} SIT</span></footer>
+      {invitationOpen && <InvitationDialog onClose={() => setInvitationOpen(false)} />}
     </>
   )
 }

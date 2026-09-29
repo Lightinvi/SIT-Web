@@ -1,3 +1,4 @@
+/** Verify administrator role matching, deduplication, and Discord identity fallbacks. */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { selectAdministrators } from '../src/api/discord.ts'
@@ -6,6 +7,7 @@ const roles = [
   { id: '1', name: '社群管理員', permissions: '0', position: 2 },
   { id: '2', name: '其他', permissions: '8', position: 1 },
 ]
+/** Build a guild-member fixture with optional Discord user-field overrides. */
 const member = (id, assigned, extra = {}) => ({ roles: assigned, user: { id, username: `user${id}`, ...extra } })
 
 test('matches exact role name or ID, excludes bots and unrelated administrators', () => {

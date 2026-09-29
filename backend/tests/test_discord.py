@@ -1,3 +1,4 @@
+"""Test Discord pagination, shared caching, rate limits, and failure recovery."""
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 import json
@@ -12,7 +13,9 @@ from app.services.discord import DiscordError, DiscordService
 
 
 class DiscordTests(unittest.TestCase):
+    """Exercise Discord routes and the disk cache with mocked network responses."""
     def setUp(self):
+        """Create an app using a temporary Discord cache and a nonproduction bot token."""
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.config = {'TESTING': True, 'DISCORD_BOT_TOKEN': 'test-secret',
@@ -22,6 +25,7 @@ class DiscordTests(unittest.TestCase):
         self.service = self.app.extensions['discord']
 
     def test_daily_cache_persists_and_expires(self):
+        """Reuse disk cache across app instances until the exact one-day expiry."""
         with patch.object(DiscordService, '_fetch', return_value=[]) as fetch:
             with patch('app.services.discord.time.time', return_value=1000):
                 first = self.client.get('/api/discord/members').json
@@ -36,6 +40,7 @@ class DiscordTests(unittest.TestCase):
                 self.assertEqual(fetch.call_count, 2)
 
     def test_resources_have_separate_cache(self):
+        """Keep member and role caches separate and disable browser caching."""
         with patch.object(self.service, '_fetch', side_effect=[[], [{'id': '10'}]]) as fetch:
             self.client.get('/api/discord/members')
             roles = self.client.get('/api/discord/roles')
@@ -45,6 +50,7 @@ class DiscordTests(unittest.TestCase):
             self.assertEqual(fetch.call_count, 2)
 
     def test_pagination_and_bot_authorization(self):
+        """Fetch subsequent member pages with the bot token and configured network timeout."""
         page = [{'user': {'id': str(i)}} for i in range(1, 1001)]
         responses = [BytesIO(json.dumps(page).encode()), BytesIO(b'[{"user":{"id":"1001"}}]')]
         with patch('app.services.discord.urlopen', side_effect=responses) as request:
@@ -56,8 +62,10 @@ class DiscordTests(unittest.TestCase):
             self.assertEqual(request.call_args.kwargs['timeout'], 15)
 
     def test_concurrent_workers_only_refresh_once(self):
+        """Ensure concurrent app workers share a single cache refresh."""
         with patch.object(DiscordService, '_fetch', return_value=[]) as fetch:
             def read(_):
+                """Read roles through a fresh app instance sharing the test cache directory."""
                 return create_app(self.config).extensions['discord'].get('roles')
             with ThreadPoolExecutor(max_workers=4) as executor:
                 results = list(executor.map(read, range(4)))
@@ -65,12 +73,14 @@ class DiscordTests(unittest.TestCase):
             self.assertEqual(sum(not item['cached'] for item in results), 1)
 
     def test_missing_token(self):
+        """Return an unavailable response without network access when the bot token is absent."""
         self.service.token = ''
         with patch('app.services.discord.urlopen') as request:
             self.assertEqual(self.client.get('/api/discord/roles').status_code, 503)
             request.assert_not_called()
 
     def test_rate_limit_backoff_and_recovery(self):
+        """Cache rate-limit failures until the retry deadline and then recover."""
         error = HTTPError('https://discord.com', 429, 'limited', {}, BytesIO(b'{"retry_after": 120.5}'))
         with patch('app.services.discord.urlopen', side_effect=[error, BytesIO(b'[]')]) as request:
             with patch('app.services.discord.time.time', return_value=1000):
@@ -84,6 +94,7 @@ class DiscordTests(unittest.TestCase):
                 self.assertEqual(request.call_count, 2)
 
     def test_failed_page_never_returns_partial_list(self):
+        """Reject a multi-page member fetch if any subsequent page fails."""
         page = [{'user': {'id': str(i)}} for i in range(1, 1001)]
         with patch.object(self.service, '_request', side_effect=[page, DiscordError('unavailable')]):
             response = self.client.get('/api/discord/members')
@@ -91,6 +102,7 @@ class DiscordTests(unittest.TestCase):
             self.assertNotIn('members', response.json)
 
     def test_errors_are_sanitized(self):
+        """Ensure upstream exception text cannot expose the bot token to clients."""
         errors = [URLError('test-secret'),
                   HTTPError('https://discord.com', 401, 'test-secret', {}, BytesIO(b'test-secret')),
                   HTTPError('https://discord.com', 403, 'test-secret', {}, BytesIO(b'test-secret'))]
@@ -101,6 +113,7 @@ class DiscordTests(unittest.TestCase):
                 self.assertNotIn('test-secret', str(caught.exception))
 
     def test_invalid_payload_and_nonadvancing_page(self):
+        """Reject invalid response shapes and pagination that fails to advance."""
         with patch('app.services.discord.urlopen', return_value=BytesIO(b'{}')):
             with self.assertRaises(DiscordError):
                 self.service._request('roles')
@@ -109,6 +122,7 @@ class DiscordTests(unittest.TestCase):
                 self.service._fetch('members')
 
     def test_json_file_and_corruption_recovery(self):
+        """Persist Unicode JSON without credentials and refresh corrupted cache records."""
         path = Path(self.config['DISCORD_CACHE_PATH']) / 'discord-510386488639488001-roles.json'
         with patch.object(self.service, '_fetch', return_value=[{'id': '1', 'name': '隊員'}]) as fetch:
             self.service.get('roles')
@@ -122,6 +136,7 @@ class DiscordTests(unittest.TestCase):
             self.assertEqual(fetch.call_count, 4)
 
     def test_failed_atomic_write_preserves_existing_file(self):
+        """Preserve the previous cache and remove temporary files if replacement fails."""
         path = Path(self.config['DISCORD_CACHE_PATH']) / 'discord-510386488639488001-roles.json'
         with patch.object(self.service, '_fetch', return_value=[]):
             with patch('app.services.discord.time.time', return_value=1000):

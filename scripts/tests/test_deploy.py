@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class DeployTests(unittest.TestCase):
+    """Verify remote deployment ordering and cleanup with a mock Docker executable."""
     def setUp(self):
+        """Create an isolated deployment bundle, configuration, and controllable Docker stub."""
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.workspace = Path(self.temp.name)
@@ -48,6 +50,7 @@ class DeployTests(unittest.TestCase):
         }
 
     def run_remote(self, failure=""):
+        """Run the remote script, optionally failing a chosen mock Docker operation."""
         self.env["TEST_FAIL_ON"] = failure
         return subprocess.run(
             ["bash", str(ROOT / "scripts/deploy-remote.sh"), str(self.bundle)],
@@ -55,6 +58,7 @@ class DeployTests(unittest.TestCase):
         )
 
     def test_success_pulls_before_up_and_removes_credentials(self):
+        """Pull images before replacing services and remove temporary registry credentials."""
         result = self.run_remote()
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = self.log.read_text().splitlines()
@@ -67,6 +71,7 @@ class DeployTests(unittest.TestCase):
         self.assertFalse(self.bundle.exists())
 
     def test_pull_failure_never_updates_containers(self):
+        """Stop before container updates when pulling an image fails."""
         result = self.run_remote("pull")
         self.assertEqual(result.returncode, 42)
         self.assertNotIn(" up -d ", self.log.read_text())
@@ -74,6 +79,7 @@ class DeployTests(unittest.TestCase):
         self.assertFalse(self.bundle.exists())
 
     def test_unhealthy_update_preserves_last_successful_metadata(self):
+        """Keep the prior image metadata when updated services fail their health checks."""
         previous = self.deploy / "images.env"
         previous.write_text("previous-images\n")
         result = self.run_remote("up")
@@ -82,6 +88,7 @@ class DeployTests(unittest.TestCase):
         self.assertFalse(self.bundle.exists())
 
     def test_missing_vm_configuration_stops_before_docker(self):
+        """Reject a deployment lacking the VM environment file before Docker is invoked."""
         (self.deploy / ".env").unlink()
         result = self.run_remote()
         self.assertNotEqual(result.returncode, 0)
@@ -89,6 +96,7 @@ class DeployTests(unittest.TestCase):
         self.assertFalse(self.bundle.exists())
 
     def test_runner_rejects_untrusted_image_reference_before_ssh(self):
+        """Reject mutable image tags before any SSH connection is attempted."""
         result = subprocess.run(
             ["bash", str(ROOT / "scripts/deploy-gcp.sh")],
             env={**self.env, "FRONTEND_IMAGE": "ghcr.io/example/frontend:latest",

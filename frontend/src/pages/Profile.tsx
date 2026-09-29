@@ -1,11 +1,14 @@
+/** Signed-in member profile with explicit loading, anonymous, missing, and error states. */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 
 import Avatar from '../components/Avatar'
 
+/** Stored Discord profile; login times are Unix seconds and guild join time is ISO text. */
 type Member = { user_id: string; username: string | null; display_name: string | null; global_name: string | null; nickname: string | null; avatar_url: string | null; guild_joined_at: string | null; created_at: number; last_login_at: number }
 
+/** Fetch the current user's profile with a timeout and offer retry or login as needed. */
 export default function Profile() {
   const [member, setMember] = useState<Member | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'anonymous' | 'missing' | 'error'>('loading')
@@ -37,6 +40,7 @@ export default function Profile() {
     return () => { disposed = true; controller.abort(); window.clearTimeout(timeout) }
   }, [attempt])
 
+  /** Format Unix seconds in the browser's timezone with a Traditional Chinese locale. */
   const formatDate = (value: number) => new Date(value * 1000).toLocaleString('zh-TW', { hour12: false })
 
   return <section className="profile-page" aria-labelledby="profile-title">

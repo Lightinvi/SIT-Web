@@ -1,3 +1,4 @@
+"""Test SQLite CRUD, transactions, input validation, and application isolation."""
 from pathlib import Path
 import sqlite3
 from tempfile import TemporaryDirectory
@@ -8,7 +9,9 @@ from app.sql import Column, SQLManager
 
 
 class SQLTests(unittest.TestCase):
+    """Exercise the SQL manager against temporary file-backed databases."""
     def setUp(self):
+        """Create a temporary members table with uniqueness and nullability constraints."""
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / 'database' / 'test.sqlite3'
@@ -18,6 +21,7 @@ class SQLTests(unittest.TestCase):
                                       Column('note')])
 
     def test_crud_and_persistence(self):
+        """Verify inserted, updated, and deleted rows persist across SQL manager instances."""
         key = self.db.insert('members', {'name': '隊員', 'note': None})
         self.assertEqual(self.db.select('members', {'id': key})[0]['name'], '隊員')
         self.assertEqual(self.db.update('members', {'name': '新名稱'}, {'id': key}), 1)
@@ -26,6 +30,7 @@ class SQLTests(unittest.TestCase):
         self.assertEqual(self.db.select('members'), [])
 
     def test_filters_order_and_pagination(self):
+        """Verify null filters, projections, ordering, pagination, and invalid limits."""
         for i in range(4):
             self.db.insert('members', {'name': str(i), 'note': None if i < 2 else 'yes'})
         self.assertEqual(len(self.db.select('members', {'note': None})), 2)
@@ -36,6 +41,7 @@ class SQLTests(unittest.TestCase):
             self.db.select('members', limit=-1)
 
     def test_transaction_rollback_including_schema(self):
+        """Roll back schema and row changes together while committing successful transactions."""
         with self.assertRaises(sqlite3.IntegrityError):
             with self.db.transaction() as tx:
                 tx.create_table('temporary_table', [Column('id', 'INTEGER')])
@@ -49,6 +55,7 @@ class SQLTests(unittest.TestCase):
         self.assertEqual(len(self.db.select('members')), 1)
 
     def test_injection_and_mass_mutation_guards(self):
+        """Bind hostile values and require explicit authorization for full-table mutations."""
         malicious = "x'); DROP TABLE members; --"
         self.db.insert('members', {'name': malicious})
         self.assertEqual(self.db.select('members', {'name': malicious})[0]['name'], malicious)
@@ -62,6 +69,7 @@ class SQLTests(unittest.TestCase):
         self.assertEqual(self.db.delete('members', all_rows=True), 1)
 
     def test_schema_and_database_health(self):
+        """Report table structure and integrity while handling absent tables."""
         self.db.insert('members', {'name': 'test'})
         self.assertEqual(self.db.list_tables(), ['members'])
         status = self.db.table_status('members')
@@ -73,6 +81,7 @@ class SQLTests(unittest.TestCase):
         self.assertTrue(self.db.database_status()['healthy'])
 
     def test_foreign_keys_and_parameterized_sql(self):
+        """Enforce foreign keys and support named bound parameters."""
         self.db.execute('CREATE TABLE links (member_id INTEGER REFERENCES members(id))')
         with self.assertRaises(sqlite3.IntegrityError):
             self.db.execute('INSERT INTO links VALUES (?)', (999,))
@@ -80,6 +89,7 @@ class SQLTests(unittest.TestCase):
         self.assertEqual(len(self.db.table_status('links')['foreign_keys']), 1)
 
     def test_app_factory_isolation_and_lazy_creation(self):
+        """Give each app its own SQL manager and create database files only on first use."""
         other = Path(self.temp.name) / 'other.sqlite3'
         app = create_app({'TESTING': True, 'SQL_DATABASE_PATH': str(other)})
         self.assertFalse(other.exists())
@@ -88,6 +98,7 @@ class SQLTests(unittest.TestCase):
         self.assertTrue(other.exists())
 
     def test_invalid_schema(self):
+        """Reject empty schemas, unsupported types, and empty inserts."""
         with self.assertRaises(ValueError):
             self.db.create_table('bad', [])
         with self.assertRaises(ValueError):

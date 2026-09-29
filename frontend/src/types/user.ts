@@ -1,3 +1,4 @@
+/** Demo user record; Discord member profiles use a separate schema. */
 export type User = {
   id: number
   name: string
@@ -6,4 +7,5 @@ export type User = {
   status: 'active' | 'invited'
 }
 
+/** Collection envelope returned by GET /api/users. */
 export type UsersResponse = { users: User[] }

@@ -4,6 +4,7 @@ from app.sql import SQLSession
 
 def ensure_member_schema(tx: SQLSession) -> None:
     # Discord snowflakes remain strings, avoiding integer precision loss in clients.
+    """Create the member table and add missing profile columns without deleting records."""
     tx.execute('''CREATE TABLE IF NOT EXISTS member (
         user_id TEXT PRIMARY KEY NOT NULL,
         username TEXT,
@@ -18,6 +19,11 @@ def ensure_member_schema(tx: SQLSession) -> None:
 
 
 def record_login(tx: SQLSession, user: dict, logged_in_at: float) -> None:
+    """Upsert a verified Discord profile within the caller's transaction.
+
+    Use the Discord ID as a text primary key and logged_in_at as Unix seconds.
+    Refresh profile fields and last_login_at while preserving the first created_at.
+    """
     ensure_member_schema(tx)
     tx.execute('''INSERT INTO member
         (user_id, username, display_name, created_at, last_login_at,
@@ -36,6 +42,7 @@ def record_login(tx: SQLSession, user: dict, logged_in_at: float) -> None:
 
 
 def get_member(db, user_id):
+    """Return the stored profile for a Discord ID, or None if the table or row is absent."""
     if not db.table_exists('member'):
         return None
     rows = db.select('member', {'user_id': user_id})

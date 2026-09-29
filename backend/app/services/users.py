@@ -1,3 +1,4 @@
+"""Provide demo users until the public user listing has a persistent data source."""
 def get_users():
     """Return demo records until a persistent user store is connected."""
     return [

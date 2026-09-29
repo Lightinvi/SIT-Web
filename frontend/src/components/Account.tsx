@@ -1,3 +1,4 @@
+/** Header authentication controls backed by the server-side login session. */
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, LogIn, LogOut, UserRound } from 'lucide-react'
 
@@ -5,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import Avatar from './Avatar'
 
+/** Authentication response; identity and logout token are present for signed-in users. */
 type LoginSession = { authenticated: boolean; user?: { name: string; avatar_url?: string | null }; csrf_token?: string }
 const errors: Record<string, string> = {
   not_configured: 'Discord 登入尚未設定完成，請稍後再試。',
@@ -15,6 +17,7 @@ const errors: Record<string, string> = {
   discord_unavailable: 'Discord 驗證暫時無法完成，請稍後再試。',
 }
 
+/** Load session state and render login, profile navigation, logout, and OAuth errors. */
 export default function Account() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -47,9 +50,11 @@ export default function Account() {
 
   useEffect(() => {
     if (!open) return
+    /** Dismiss the account dropdown when a pointer event targets another element. */
     const closeOutside = (event: PointerEvent) => {
       if (!dropdown.current?.contains(event.target as Node)) setOpen(false)
     }
+    /** Dismiss on Escape and restore keyboard focus to the dropdown trigger. */
     const closeEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { setOpen(false); trigger.current?.focus() }
     }
@@ -61,6 +66,7 @@ export default function Account() {
     }
   }, [open])
 
+  /** Invalidate the session with its CSRF token and return to the homepage on success. */
   async function logout() {
     setOpen(false)
     setLoading(true)

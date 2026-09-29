@@ -6,10 +6,16 @@ from urllib.request import Request, urlopen
 
 
 class OAuthError(Exception):
+    """Represent a public authentication failure code without exposing credentials."""
     pass
 
 
 def discord_request(path, *, token=None, data=None):
+    """Call Discord with an optional bearer token or form-encoded POST payload.
+
+    Return a JSON object. Raise OAuthError for network, payload, or API failures;
+    a missing guild membership is distinguished from a general upstream failure.
+    """
     headers = {'User-Agent': 'SIT-Web OAuth/1.0'}
     if token:
         headers['Authorization'] = f'Bearer {token}'
@@ -34,6 +40,11 @@ def discord_request(path, *, token=None, data=None):
 
 
 def authenticate(code, config):
+    """Exchange an OAuth code and verify the user's current membership in the guild.
+
+    Return identity, display-name, avatar, and join-date fields without tokens.
+    Reject mismatched identities and memberships awaiting screening.
+    """
     credentials = discord_request('oauth2/token', data={
         'client_id': config['DISCORD_CLIENT_ID'],
         'client_secret': config['DISCORD_CLIENT_SECRET'],

@@ -12,19 +12,28 @@ from urllib.request import Request, urlopen
 
 
 class DiscordError(Exception):
+    """Carry a client-safe message, HTTP status, and retry delay for Discord failures."""
     def __init__(self, message, status=502, retry_after=60):
+        """Associate a sanitized message with response status and retry delay in seconds."""
         super().__init__(message)
         self.status = status
         self.retry_after = retry_after
 
 
 class DiscordService:
+    """Read guild resources through a disk cache shared by application workers."""
     def __init__(self, token, guild_id, cache_path):
+        """Store the bot token, guild ID, and cache directory without making network calls."""
         self.token = token
         self.guild_id = guild_id
         self.cache_path = Path(cache_path)
 
     def _request(self, resource, query=''):
+        """Fetch one Discord list response with bot authorization and a 15-second timeout.
+
+        Validate the response shape and translate upstream failures into sanitized
+        DiscordError instances, preserving a usable rate-limit retry delay.
+        """
         request = Request(
             f'https://discord.com/api/v10/guilds/{self.guild_id}/{resource}{query}',
             headers={'Authorization': f'Bot {self.token}',
@@ -57,7 +66,27 @@ class DiscordService:
             raise DiscordError('Discord 回傳的資料格式不正確。')
         return data
 
+    def find_administrator(self, username, role_ids):
+        """Verify a referral username against live guild members with configured roles.
+
+        Bypass the daily public cache so removed administrators cannot keep issuing
+        website referrals. Return stable ID and current username, or None.
+        """
+        if not self.token:
+            raise DiscordError('管理員代碼驗證尚未設定，請稍後再試。', 503)
+        for member in self._fetch('members'):
+            user = member.get('user', {})
+            if (user.get('username', '').casefold() == username.casefold()
+                    and not user.get('bot') and not member.get('pending')
+                    and set(member.get('roles', [])).intersection(role_ids)):
+                return {'id': user['id'], 'username': user['username']}
+        return None
+
     def _fetch(self, resource):
+        """Return all roles or collect every member page in increasing snowflake order.
+
+        Reject duplicate or nonadvancing member IDs rather than return a partial list.
+        """
         if resource == 'roles':
             return self._request('roles')
         members = []
@@ -78,6 +107,10 @@ class DiscordService:
     @contextmanager
     def _lock(self, path):
         # Keep the lock file: unlinking it could split workers across two locks.
+        """Hold an exclusive cache-file lock, waiting at most twenty seconds.
+
+        Keep the lock file on disk so workers continue locking the same inode.
+        """
         with path.open('a') as lock:
             deadline = time.monotonic() + 20
             while True:
@@ -94,6 +127,10 @@ class DiscordService:
                 fcntl.flock(lock, fcntl.LOCK_UN)
 
     def _read_cache(self, path, resource):
+        """Return a structurally valid success or error record, or None for invalid JSON.
+
+        Expiration is checked by get, not by this reader.
+        """
         try:
             record = json.loads(path.read_text(encoding='utf-8'))
             expires = record['expires_at']
@@ -109,6 +146,10 @@ class DiscordService:
         return None
 
     def _write_cache(self, path, record):
+        """Atomically replace cached JSON after flushing it to disk.
+
+        Clean up unfinished temporary files and propagate filesystem failures.
+        """
         temporary = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -126,6 +167,11 @@ class DiscordService:
                 temporary.unlink(missing_ok=True)
 
     def get(self, resource):
+        """Return members or roles with cache timestamps and a cached flag.
+
+        Reuse successful data for one day and cache failures for their retry interval.
+        Refresh under a process-shared lock; raise DiscordError while an error is cached.
+        """
         if not self.token:
             raise DiscordError('尚未設定 DISCORD_BOT_TOKEN。', 503)
         if resource not in ('members', 'roles'):

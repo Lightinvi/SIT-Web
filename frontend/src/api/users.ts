@@ -1,5 +1,11 @@
+/** Typed access to the demo-user endpoint, separate from authenticated profiles. */
 import type { UsersResponse } from '../types/user'
 
+/**
+ * Fetch and validate the demo-user collection without using the browser cache.
+ * @param signal Optional cancellation signal for unmounts or request deadlines.
+ * @throws When the request fails or a user record has an invalid shape.
+ */
 export async function getUsers(signal?: AbortSignal): Promise<UsersResponse> {
   const response = await fetch('/api/users', { signal, cache: 'no-store' })
   if (!response.ok) throw new Error('無法取得使用者資料，請稍後重試。')

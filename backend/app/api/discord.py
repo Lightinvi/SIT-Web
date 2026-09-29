@@ -1,3 +1,4 @@
+"""Serve cached Discord guild collections with sanitized errors and retry guidance."""
 from flask import Blueprint, current_app, jsonify
 
 from app.services.discord import DiscordError
@@ -7,6 +8,7 @@ discord_bp = Blueprint('discord', __name__)
 
 
 def respond(resource):
+    """Return a cached resource or a client-safe failure with Retry-After metadata."""
     try:
         response = jsonify(current_app.extensions['discord'].get(resource))
     except DiscordError as error:
@@ -19,9 +21,11 @@ def respond(resource):
 
 @discord_bp.get('/members', strict_slashes=False)
 def list_members():
+    """Return the configured guild's member collection through the shared cache."""
     return respond('members')
 
 
 @discord_bp.get('/roles', strict_slashes=False)
 def list_roles():
+    """Return the configured guild's role collection through the shared cache."""
     return respond('roles')

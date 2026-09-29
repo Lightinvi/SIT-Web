@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// https://vite.dev/config/
+/** Enable React transforms and proxy development API requests to Flask. */
 export default defineConfig({
   plugins: [react()],
   server: {

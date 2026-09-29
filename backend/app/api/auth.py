@@ -1,3 +1,4 @@
+"""Manage Discord OAuth, persistent member profiles, and server-side login sessions."""
 import hashlib
 import json
 import secrets
@@ -14,6 +15,7 @@ auth_bp = Blueprint('auth', __name__)
 
 
 def database():
+    """Return the app SQL manager after lazily creating OAuth and login-session tables."""
     db = current_app.extensions['sql']
     db.execute('CREATE TABLE IF NOT EXISTS oauth_states (id TEXT PRIMARY KEY, expires REAL NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS login_sessions (id TEXT PRIMARY KEY, user TEXT NOT NULL, expires REAL NOT NULL)')
@@ -21,15 +23,18 @@ def database():
 
 
 def digest(value):
+    """Hash an opaque OAuth state or login identifier before storing or looking it up."""
     return hashlib.sha256(value.encode()).hexdigest()
 
 
 def fail(code):
+    """Redirect to the homepage with a URL-encoded authentication error code."""
     return redirect('/?' + urlencode({'auth_error': code}))
 
 
 @auth_bp.after_request
 def private_response(response):
+    """Prevent caching authentication responses and leaking callback URLs via referrers."""
     response.headers['Cache-Control'] = 'no-store'
     response.headers['Referrer-Policy'] = 'no-referrer'
     return response
@@ -37,6 +42,11 @@ def private_response(response):
 
 @auth_bp.get('/discord/login')
 def login():
+    """Start Discord authorization with a single-use state valid for ten minutes.
+
+    Purge expired authentication records and keep the unhashed state in Flask's
+    signed cookie so the callback must match both the cookie and database record.
+    """
     config = current_app.config
     if not all(config.get(key) for key in ('SECRET_KEY', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'DISCORD_REDIRECT_URI')):
         return fail('not_configured')
@@ -55,6 +65,12 @@ def login():
 
 @auth_bp.get('/discord/callback')
 def callback():
+    """Consume a valid OAuth state, verify guild membership, and establish a login.
+
+    Store the member profile and login session in one transaction. Session expiry
+    uses Flask's permanent_session_lifetime, defaulting to seven days from login.
+    Discord access tokens are used only during verification and are not persisted.
+    """
     expected = session.pop('oauth_state', None)
     state = request.args.get('state', '')
     if not expected or not secrets.compare_digest(expected, state):
@@ -84,7 +100,7 @@ def callback():
     with db.transaction() as tx:
         record_login(tx, user, logged_in_at)
         tx.insert('login_sessions', {'id': digest(login_id), 'user': json.dumps(user),
-                                     'expires': logged_in_at + 28800})
+                                     'expires': logged_in_at + current_app.permanent_session_lifetime.total_seconds()})
     session['login_id'] = login_id
     session['csrf'] = secrets.token_urlsafe(32)
     session.permanent = True
@@ -92,6 +108,11 @@ def callback():
 
 
 def current_user():
+    """Return the login snapshot or None when the session is missing or expired.
+
+    Delete an expired database record and clear its browser session on access.
+    Reading a valid session does not extend the stored database expiration.
+    """
     login_id = session.get('login_id')
     if not login_id:
         return None
@@ -107,6 +128,10 @@ def current_user():
 
 @auth_bp.get('/session')
 def session_status():
+    """Return authentication state and, for a valid login, the user and logout CSRF token.
+
+    Prefer the saved member's display name and avatar over the login snapshot.
+    """
     user = current_user()
     if user is None:
         return jsonify(authenticated=False)
@@ -119,6 +144,7 @@ def session_status():
 
 @auth_bp.get('/profile')
 def profile():
+    """Return only the current user's saved profile; use 401 or 404 when unavailable."""
     user = current_user()
     if user is None:
         return jsonify(error='請先登入帳號。'), 401
@@ -131,6 +157,7 @@ def profile():
 
 @auth_bp.post('/logout')
 def logout():
+    """Invalidate the current login and cookie after validating the logout CSRF header."""
     expected = session.get('csrf')
     if not expected or not secrets.compare_digest(expected, request.headers.get('X-CSRF-Token', '')):
         return jsonify(error='無效的登出請求。'), 403

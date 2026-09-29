@@ -9,13 +9,16 @@ SCRIPT = Path(__file__).resolve().parents[1] / "setup-https.sh"
 
 
 class HttpsTests(unittest.TestCase):
+    """Verify safe Nginx bootstrap rendering without root access or certificate issuance."""
     def render(self, domain, port="8080"):
+        """Render a candidate domain and application port through the script's preview mode."""
         return subprocess.run(
             ["bash", str(SCRIPT), "--print-config", domain, port],
             capture_output=True, text=True,
         )
 
     def test_site_and_proxy_headers(self):
+        """Preserve Nginx variables and generate the expected plaintext bootstrap proxy."""
         result = self.render("sit-web.sytes.net")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("server_name sit-web.sytes.net;", result.stdout)
@@ -25,16 +28,19 @@ class HttpsTests(unittest.TestCase):
         self.assertNotIn("ssl_certificate", result.stdout)
 
     def test_custom_application_port(self):
+        """Use a validated custom application port in the upstream address."""
         result = self.render("sit-web.sytes.net", "9080")
         self.assertEqual(result.returncode, 0)
         self.assertIn("127.0.0.1:9080", result.stdout)
 
     def test_invalid_domain_is_rejected(self):
+        """Reject malformed domains, wildcards, and configuration injection characters."""
         for domain in ("example.com;", "../example.com", "example..com", "-bad.example.com", "example.com.", "*.example.com"):
             with self.subTest(domain=domain):
                 self.assertNotEqual(self.render(domain).returncode, 0)
 
     def test_reserved_or_invalid_ports_are_rejected(self):
+        """Reject invalid ports and ports reserved for the external HTTP and HTTPS listeners."""
         for port in ("80", "443", "0", "65536", "8080;", "-1"):
             with self.subTest(port=port):
                 self.assertNotEqual(self.render("sit-web.sytes.net", port).returncode, 0)
