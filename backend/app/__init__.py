@@ -9,6 +9,7 @@ from app.services.discord import DiscordService
 
 from app.config import Config
 from app.extensions import init_extensions
+from app.logging_setup import init_logging
 
 
 def create_app(config=None):
@@ -34,10 +35,12 @@ def create_app(config=None):
         DISCORD_ADMIN_ROLE_IDS=('513295891482804250',),
         DISCORD_LOGIN_ROLE_IDS=('578156037589172244', '749803225275695156', '513295891482804250'),
         DISCORD_CACHE_PATH=str(Path(os.environ.get("STORAGE_PATH", Path(__file__).resolve().parents[2] / "storage")) / "cache"),
+        LOG_DIRECTORY=os.environ.get('LOG_DIRECTORY', str(Path(os.environ.get('STORAGE_PATH', Path(__file__).resolve().parents[2] / 'storage')) / 'logs')),
     )
     if config is not None:
         app.config.from_mapping(config)
 
+    init_logging(app)
     init_extensions(app)
     app.extensions["discord"] = DiscordService(
         app.config["DISCORD_BOT_TOKEN"], app.config["DISCORD_GUILD_ID"],

@@ -82,6 +82,8 @@ Place domain logic in `services`, persistence in `models`, and helpers in `utils
 
 Feature documentation:
 
+- [Request tracing and bounded Docker logs](docs/logging.md)
+
 - [Star Shard ledger and transfers](docs/star-shards.md)
 - [Daily spinner, reward odds, and host-timezone midnight reset](docs/daily-spinner.md)
 

@@ -196,7 +196,7 @@ class AuthTests(unittest.TestCase):
             self.assertIn('not_configured', app.test_client().get('/api/auth/discord/login').location)
         with patch.dict('os.environ', {'DISCORD_CLIENT_ID': 'explicit',
                 'DISCORD_BOT_CLIENT_ID': 'fallback'}):
-            self.assertEqual(create_app().config['DISCORD_CLIENT_ID'], 'explicit')
+            self.assertEqual(create_app({'TESTING': True}).config['DISCORD_CLIENT_ID'], 'explicit')
 
     def test_member_created_and_updated_on_successful_login(self):
         """Refresh profiles on login while preserving first-login time and records after logout."""

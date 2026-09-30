@@ -9,13 +9,20 @@ services:
       DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI:-}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       STORAGE_PATH: /app/storage
+      LOG_DIRECTORY: /app/logs
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
     volumes:
       - storage:/app/storage
+      - logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
     expose:
       - "8000"
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
   frontend:
     build:
       context: .
@@ -25,6 +32,12 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
 
 volumes:
   storage:
+  logs:

@@ -29,6 +29,7 @@ def digest(value):
 
 def fail(code):
     """Redirect to the homepage with a URL-encoded authentication error code."""
+    current_app.logger.warning('Discord login rejected: %s', code)
     return redirect('/?' + urlencode({'auth_error': code}))
 
 

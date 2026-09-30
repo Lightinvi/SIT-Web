@@ -6,7 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY wsgi.py .
-RUN useradd --create-home appuser && mkdir -p /app/storage/cache && chown -R appuser:appuser /app/storage
+RUN useradd --create-home appuser && mkdir -p /app/storage/cache /app/logs && chown -R appuser:appuser /app/storage /app/logs
 USER appuser
 EXPOSE 8000
 CMD ["gunicorn", "--workers", "2", "--bind", "0.0.0.0:8000", "wsgi:app"]
