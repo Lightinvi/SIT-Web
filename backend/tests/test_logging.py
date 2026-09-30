@@ -68,6 +68,29 @@ class LoggingTests(unittest.TestCase):
         self.assertTrue(all(path.stat().st_size <= 1024 for path in files))
         self.assertTrue(any(event.get('truncated') for event in self.events()))
 
+    def test_health_success_is_quiet(self):
+        """Health probes remain public, correlated, and absent from successful request logs."""
+        client = self.app.test_client()
+        for method in (client.get, client.head):
+            response = method('/api/health')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('X-Request-ID', response.headers)
+        self.assertEqual(client.get('/api/health').json, {'status': 'ok'})
+        self.assertEqual(self.events(), [])
+        client.get('/api/users')
+        self.assertEqual(self.events()[-1]['route'], '/api/users')
+
+    def test_health_failures_are_logged(self):
+        """Do not hide failed probes, unsupported methods, or similar missing routes."""
+        client = self.app.test_client()
+        client.post('/api/health')
+        client.get('/api/health-missing')
+        self.app.view_functions['health'] = lambda: ({'status': 'unavailable'}, 503)
+        response = client.get('/api/health')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual([event['level'] for event in self.events()], ['WARNING', 'WARNING', 'ERROR'])
+        self.assertEqual(self.events()[-1]['requestId'], response.headers['X-Request-ID'])
+
     def test_multiple_processes_share_complete_records(self):
         """Separate workers preserve every event when rotation is not needed."""
         workers = [get_context('fork').Process(target=write_worker, args=(self.temp.name, index, 50, MAX_LOG_BYTES)) for index in range(4)]

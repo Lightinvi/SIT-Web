@@ -7,6 +7,16 @@
 
 ## 儲存與輪替
 
+正式環境的前後端健康檢查改用 `/api/health`，正常運行時各每小時檢查一次。
+此端點僅確認 Flask HTTP 服務存活，不查詢資料库或 Discord；前端仍額外檢查首頁。
+啟動寬限期為 60 秒，期間每 5 秒檢查，首次成功後切換至每小時。
+需要 Docker Engine 25.0+ 與 Docker Compose 2.20.2+，以支援 `start_interval`。
+參考：[Docker Compose healthcheck](https://docs.docker.com/reference/compose-file/services/#healthcheck)。
+Flask 與容器 Nginx 不記錄 `/api/health` 成功的 2xx 請求；失敗紀錄照常保留。
+一般 `/api/users` 請求仍會記錄；VM 外層代理與開發伺服器的日誌設定不受影響。
+保留連續 6 次失敗才標示 unhealthy，故故障辨識可能需要約 6 小時；
+Docker 的 restart policy 不會只因 unhealthy 自動重啟容器。
+
 - 本機：`storage/logs/app.log`，可透過 `LOG_DIRECTORY` 改變目錄。
 - Docker：`logs` named volume 掛載到後端 `/app/logs`，重建容器仍保留。
 - 檔案：`app.log` 加 `app.log.1`，**合計最多兩份，不是兩份備份**。

@@ -24,11 +24,12 @@ services:
         max-size: "10m"
         max-file: "2"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/users', timeout=3)"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 1h
       timeout: 5s
       retries: 6
-      start_period: 10s
+      start_period: 60s
+      start_interval: 5s
 
   frontend:
     image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE}
@@ -44,11 +45,12 @@ services:
         max-size: "10m"
         max-file: "2"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ && wget -q -O /dev/null http://127.0.0.1/api/users"]
-      interval: 10s
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ && wget -q -O /dev/null http://127.0.0.1/api/health"]
+      interval: 1h
       timeout: 5s
       retries: 6
-      start_period: 10s
+      start_period: 60s
+      start_interval: 5s
 
 volumes:
   storage:

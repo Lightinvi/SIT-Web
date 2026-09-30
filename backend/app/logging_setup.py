@@ -99,6 +99,8 @@ def init_logging(app):
     def end_request(response):
         """Log a route template and status, and expose the correlation ID to clients."""
         response.headers['X-Request-ID'] = g.request_id
+        if request.endpoint == 'health' and 200 <= response.status_code < 300:
+            return response
         level = logging.ERROR if response.status_code >= 500 else logging.WARNING if response.status_code >= 400 else logging.INFO
         logger.log(level, 'HTTP request completed', extra={'request_summary': {
             'method': request.method, 'route': request.url_rule.rule if request.url_rule else '[unmatched]',

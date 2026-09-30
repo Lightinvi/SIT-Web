@@ -64,4 +64,9 @@ def create_app(config=None):
 
     app.register_blueprint(discord_bp, url_prefix="/api/discord")
 
+    @app.get('/api/health')
+    def health():
+        """Report HTTP liveness without accessing Discord or application data."""
+        return {'status': 'ok'}
+
     return app
