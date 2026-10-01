@@ -8,6 +8,7 @@ import Account from './components/Account'
 import type { LoginSession } from './components/Account'
 import Home from './pages/Home'
 import DailySpinner from './pages/DailySpinner'
+import Blackjack from './pages/Blackjack'
 import Profile from './pages/Profile'
 import Admin from './pages/Admin'
 import AdminViewer from './pages/AdminViewer'
@@ -59,6 +60,7 @@ function App() {
 
           </Home>} />
           <Route path="/daily-spinner" element={<DailySpinner />} />
+          <Route path="/blackjack" element={<Blackjack />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/database" element={<AdminViewer key="database" mode="database" />} />

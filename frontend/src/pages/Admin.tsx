@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Database, ScrollText, ShieldCheck, RefreshCw } from 'lucide-react'
 import './AdminViewer.css'
+import AdminShardGrant from '../components/AdminShardGrant'
 
 /** Synchronize guild caches and stored permissions without exposing member lists. */
 export default function Admin() {
@@ -56,6 +57,7 @@ export default function Admin() {
       </nav>
       <div className="admin-sync-row"><h2><ShieldCheck size={20} aria-hidden="true" />權限與 Discord 快取</h2>
       <button className="admin-sync-button" disabled={busy} onClick={synchronize}><RefreshCw size={17} aria-hidden="true" className={busy ? 'admin-spinning' : ''} />{busy ? '同步中…' : '同步權限與快取'}</button></div>
+      <AdminShardGrant />
     </>}
     {message && <p className="profile-notice" role="status">{message}</p>}
   </section>

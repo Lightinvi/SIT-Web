@@ -6,6 +6,7 @@
 .home-feature:hover { border-color: #176a61; background: #f3faf8; }
 .home-feature:focus-visible, .home-return:focus-visible { outline: 3px solid #176a61; outline-offset: 3px; }
 .home-feature > img { width: 72px; height: 72px; object-fit: contain; }
+.home-poker { width: 48px; aspect-ratio: 80 / 117; background-image: url('../assets/poker.webp'); background-size: 1300% 500%; background-position: 0 75%; border-radius: 3px; }
 .home-feature > span { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 650; }
 .home-feature-arrow { position: absolute; top: 18px; right: 18px; color: #627777; }
 .home-return { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; padding: 10px 0; border: 0; background: transparent; font: inherit; color: #176a61; cursor: pointer; }

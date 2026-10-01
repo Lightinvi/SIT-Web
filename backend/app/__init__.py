@@ -56,11 +56,13 @@ def create_app(config=None):
     from app.invitations_cli import invitations_cli
     from app.api.star_shard import shards_bp
     from app.api.daily_spinner import spinner_bp
+    from app.api.blackjack import blackjack_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(shards_bp, url_prefix="/api/star-shards")
     app.register_blueprint(spinner_bp, url_prefix="/api/daily-spinner")
+    app.register_blueprint(blackjack_bp, url_prefix="/api/blackjack")
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(invitations_bp, url_prefix="/api/invitations")
     app.cli.add_command(invitations_cli)

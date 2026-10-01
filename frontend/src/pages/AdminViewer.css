@@ -46,6 +46,19 @@
 .admin-sync-button:hover:not(:disabled) { background: #10513f; }
 .admin-sync-button:disabled { opacity: .6; cursor: wait; }
 .admin-spinning { animation: admin-spin 1s linear infinite; }
+.admin-grant { border-top: 1px solid #d7dce2; padding: 24px 0; min-width: 0; }
+.admin-grant h2 { display: flex; align-items: center; gap: 10px; font-size: 18px; margin: 0 0 24px; }
+.admin-grant form { display: grid; gap: 12px; max-width: 560px; min-width: 0; }
+.admin-grant form > input { min-width: 0; width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #a8b2bd; border-radius: 6px; font: inherit; }
+.admin-grant form > button { justify-self: start; margin-top: 8px; }
+.admin-grant-confirm { overflow-wrap: anywhere; }
+.admin-grant-confirm > div { display: flex; gap: 12px; flex-wrap: wrap; }
+.admin-grant-dialog { width: min(520px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #d7dce2; border-radius: 8px; background: #fff; color: #243343; box-sizing: border-box; overflow-y: auto; margin: auto; }
+.admin-grant-dialog::backdrop { background: #14252699; }
+.admin-grant-dialog * { box-sizing: border-box; letter-spacing: 0; }
+.admin-grant-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.admin-grant-heading h2 { margin: 0; }
+.admin-grant-heading > button { flex-shrink: 0; }
 @keyframes admin-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .admin-spinning { animation: none; } }
 .admin-links { display: flex; gap: 24px; margin: 24px 0; flex-wrap: wrap; }

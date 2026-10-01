@@ -1,0 +1,70 @@
+.blackjack-page { padding: 32px 0 48px; letter-spacing: 0; }
+.blackjack-page * { box-sizing: border-box; letter-spacing: 0; }
+.bj-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 24px 0; }
+.bj-heading h1 { font-size: 32px; margin: 0 0 8px; }
+.bj-heading p { margin: 0; font-size: 13px; color: #68767c; }
+.bj-wallet { display: flex; align-items: center; gap: 8px; font-size: 20px; min-width: 0; overflow-wrap: anywhere; }
+.bj-wallet img { width: 32px; height: 32px; object-fit: contain; }
+.bj-topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; font-size: 13px; }
+.bj-topline > span { display: inline-flex; align-items: center; gap: 8px; }
+.blackjack-page button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px; border: 1px solid #a9bcbd; border-radius: 6px; padding: 10px 16px; color: #214f49; background: #fff; font: inherit; cursor: pointer; }
+.blackjack-page button:disabled { opacity: .45; cursor: not-allowed; }
+.blackjack-page button:focus-visible { outline: 3px solid #c59133; outline-offset: 3px; }
+.bj-table { position: relative; background: #165a4b; color: #f4faf8; min-height: 550px; padding: 28px 28px 20px; overflow: hidden; border-block: 6px solid #243e3e; }
+.bj-table h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+.bj-table h2 span { margin-left: 12px; color: #c2e0d6; font-size: 13px; }
+.bj-dealer { min-height: 190px; padding-right: 100px; }
+.bj-deck { position: absolute; right: 28px; top: 30px; width: 78px; }
+.bj-deck > .bj-card { width: 68px; animation: none; box-shadow: 3px 3px 0 #e5e9ea, 6px 6px 0 #264f58; }
+.bj-deck span { display: block; font-size: 9px; margin-top: 16px; text-align: center; }
+.bj-cards { display: flex; flex-wrap: wrap; gap: 8px; min-height: 145px; align-items: flex-start; }
+.bj-card { width: 96px; aspect-ratio: 80 / 117; position: relative; flex-shrink: 0; perspective: 700px; animation: bj-deal .55s ease-out both; animation-delay: var(--deal-delay, 0ms); }
+.bj-card-flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .55s ease; }
+.bj-card-flip.is-face-up { transform: rotateY(180deg); }
+.bj-card-back, .bj-card-face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 4px; background-image: url('../assets/poker.webp'); background-size: 1300% 500%; box-shadow: 0 3px 7px #082d3266; }
+.bj-card-back { background-position: 16.666667% 100%; }
+.bj-card-face { transform: rotateY(180deg); background-position: var(--card-x) var(--card-y); }
+@keyframes bj-deal { from { opacity: 0; transform: translate(85px, -95px) rotate(12deg) scale(.65); } to { opacity: 1; transform: none; } }
+.bj-table-mark { text-align: center; color: #c8d6a2; font-size: 18px; padding: 12px 0 24px; border-top: 1px solid #ffffff30; }
+.bj-table-mark span { display: block; font-size: 10px; margin-top: 6px; }
+.bj-hands { display: flex; gap: 20px; flex-wrap: wrap; }
+.bj-player-hand { min-width: 0; flex: 1 1 220px; border-bottom: 2px solid transparent; padding-bottom: 8px; }
+.bj-player-hand.is-active { border-color: #f2d78a; }
+.bj-player-hand p { font-size: 13px; color: #dde8dd; }
+.bj-waiting { text-align: center; width: 100%; color: #b9d6cc; padding: 24px 0; }
+.bj-waiting > span { font-size: 52px; font-weight: 700; }
+.bj-controls { border-bottom: 1px solid #cfd9d8; padding: 20px 0 28px; }
+.bj-result { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; min-height: 64px; text-align: center; margin-bottom: 16px; }
+.bj-result strong { font-size: 22px; color: #176a58; }
+.bj-result span { font-size: 13px; }
+.bj-bet-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; justify-content: center; }
+.bj-bet-form label { font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+.bj-bet-form input { width: 190px; min-height: 44px; padding: 10px; font: inherit; border: 1px solid #a9bcbd; border-radius: 6px; background: #fff; }
+.bj-bet-form small { flex-basis: 100%; text-align: center; color: #98412f; }
+.blackjack-page .bj-primary { background: #246b59; border-color: #246b59; color: #fff; }
+.bj-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+.bj-notice { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 0; color: #a03938; }
+.bj-rules { padding: 24px 0; }
+.bj-rules > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.bj-rules h2 { font-size: 20px; }
+.bj-rules ul { padding-left: 22px; line-height: 1.9; }
+.bj-rules li { margin-bottom: 10px; }
+@media (max-width: 700px) {
+  .bj-heading h1 { font-size: 28px; }
+  .bj-heading { align-items: flex-start; }
+  .bj-heading p { max-width: 150px; }
+  .bj-wallet { font-size: 16px; }
+  .bj-table { margin-inline: -8px; padding: 20px 12px; min-height: 490px; }
+  .bj-card { width: 65px; }
+  .bj-cards { min-height: 96px; gap: 5px; }
+  .bj-dealer { min-height: 160px; padding-right: 52px; }
+  .bj-deck { right: 12px; top: 20px; width: 45px; }
+  .bj-deck > .bj-card { width: 38px; }
+  .bj-deck span { font-size: 7px; }
+  .bj-table-mark { font-size: 15px; }
+  .bj-hands { gap: 12px; }
+  .bj-player-hand { flex-basis: 100%; }
+  .bj-bet-form input { width: 150px; }
+  .bj-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .bj-card { animation: none; } .bj-card-flip { transition: none; } }

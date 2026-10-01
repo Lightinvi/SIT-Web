@@ -2,14 +2,18 @@
 import json
 import secrets
 import time
+import sqlite3
+from uuid import UUID
 
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import Blueprint, current_app, g, jsonify, request, session
 
 from app.api.auth import current_user, database
 from app.models.member import ensure_member_schema
 from app.services.discord import DiscordError
 from app.services.roles import highest_role
 from app.services.admin_reader import table_page, log_page
+from app.models.shard_grant import grant
+from app.models.star_shard import ShardError
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -41,6 +45,41 @@ def authorize():
     role = highest_role(member.get('roles'))
     if member.get('user', {}).get('id') != user['id'] or member.get('pending') or not role or role['key'] != 'web_admin':
         return jsonify(error='僅限網頁管理員使用。'), 403
+    g.admin_user_id = user['id']
+
+
+@admin_bp.get('/shards/members')
+def grant_members():
+    """Search registered recipients, including the administrator's own member record."""
+    query = request.args.get('q', '').strip()[:100]
+    with current_app.extensions['sql'].transaction() as tx:
+        rows = tx.query('''SELECT userId, username, displayName FROM member
+            WHERE instr(lower(coalesce(username, '')), lower(?)) > 0
+            OR instr(lower(coalesce(displayName, '')), lower(?)) > 0 OR userId = ?
+            ORDER BY coalesce(displayName, username, userId), userId LIMIT 50''', (query, query, query))
+    return jsonify(members=rows)
+
+
+@admin_bp.post('/shards/grant')
+def grant_shards():
+    """Credit only after live administrator and CSRF checks; clients cannot choose the ledger type."""
+    payload = request.get_json(silent=True)
+    try:
+        if not isinstance(payload, dict):
+            raise ValueError()
+        request_id = str(UUID(payload.get('requestId', '')))
+    except (ValueError, TypeError, AttributeError):
+        return jsonify(error='無效的操作識別碼。'), 400
+    try:
+        receipt = grant(current_app.extensions['sql'], g.admin_user_id,
+                        payload.get('recipientId'), payload.get('amount'), request_id)
+    except ShardError as error:
+        return jsonify(error=str(error)), 400
+    except sqlite3.Error:
+        current_app.logger.exception('System shard grant failed')
+        return jsonify(error='暫時無法確認發放結果，請重試相同操作。'), 503
+    current_app.logger.info('System shard grant confirmed: grant=%s administrator=%s', receipt['id'], g.admin_user_id)
+    return jsonify(receipt=receipt)
 
 
 @admin_bp.get('/status')
