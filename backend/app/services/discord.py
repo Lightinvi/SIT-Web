@@ -62,6 +62,10 @@ class DiscordService:
                                503 if error.code == 429 else 502, retry_after) from None
         except (URLError, OSError, ValueError):
             raise DiscordError('無法讀取 Discord 資料，請稍後再試。') from None
+        if resource.startswith('members/'):
+            if not isinstance(data, dict) or not isinstance(data.get('roles'), list):
+                raise DiscordError('Discord 回傳的資料格式不正確。')
+            return data
         if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
             raise DiscordError('Discord 回傳的資料格式不正確。')
         return data
@@ -166,7 +170,7 @@ class DiscordService:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
 
-    def get(self, resource):
+    def get(self, resource, *, force=False):
         """Return members or roles with cache timestamps and a cached flag.
 
         Reuse successful data for one day and cache failures for their retry interval.
@@ -183,7 +187,7 @@ class DiscordService:
             self.cache_path.mkdir(parents=True, exist_ok=True)
             with self._lock(path.with_suffix('.lock')):
                 result = self._read_cache(path, resource)
-                cached = result is not None and result['expires_at'] > time.time()
+                cached = not force and result is not None and result['expires_at'] > time.time()
                 if not cached:
                     try:
                         data = self._fetch(resource)

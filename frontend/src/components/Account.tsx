@@ -1,6 +1,6 @@
 /** Header authentication controls backed by the server-side login session. */
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, History, LogIn, LogOut, UserRound } from 'lucide-react'
+import { ChevronDown, History, LogIn, LogOut, UserRound, Settings } from 'lucide-react'
 import StarShard from './StarShard'
 
 import { Link, useNavigate } from 'react-router-dom'
@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 
 /** Authentication response; identity and logout token are present for signed-in users. */
-export type LoginSession = { authenticated: boolean; user?: { id?: string; name: string; avatar_url?: string | null }; csrf_token?: string }
+export type LoginSession = { authenticated: boolean; user?: { id?: string; name: string; avatar_url?: string | null; access_role?: { key: string } | null }; csrf_token?: string }
 const errors: Record<string, string> = {
   not_configured: 'Discord 登入尚未設定完成，請稍後再試。',
   not_member: '僅限 SIT Discord 群組成員登入，請先加入社群。',
@@ -27,6 +27,12 @@ export default function Account({ onSessionChange }: { onSessionChange: (session
   const trigger = useRef<HTMLButtonElement>(null)
   const [account, setAccount] = useState<LoginSession>({ authenticated: false })
   const [loading, setLoading] = useState(true)
+  const [revision, setRevision] = useState(0)
+  useEffect(() => {
+    const refresh = () => setRevision(value => value + 1)
+    window.addEventListener('account-updated', refresh)
+    return () => window.removeEventListener('account-updated', refresh)
+  }, [])
   const [message, setMessage] = useState(() => {
     const error = new URLSearchParams(window.location.search).get('auth_error')
     return error ? errors[error] || '登入失敗，請重新嘗試。' : ''
@@ -48,7 +54,7 @@ export default function Account({ onSessionChange }: { onSessionChange: (session
       .catch(() => { if (!disposed) { setMessage('無法確認登入狀態，請稍後再試。'); onSessionChange({ authenticated: false }) } })
       .finally(() => { window.clearTimeout(timeout); if (!disposed) setLoading(false) })
     return () => { disposed = true; controller.abort(); window.clearTimeout(timeout) }
-  }, [onSessionChange])
+  }, [onSessionChange, revision])
 
   useEffect(() => {
     if (!open) return
@@ -94,6 +100,7 @@ export default function Account({ onSessionChange }: { onSessionChange: (session
         </button>
         {open && <div className="account-actions" id="account-actions">
           <Link to="/profile" onClick={() => setOpen(false)}><UserRound size={17} aria-hidden="true" />個人資料</Link>
+          {account.user?.access_role?.key === 'web_admin' && <Link to="/admin" onClick={() => setOpen(false)}><Settings size={17} aria-hidden="true" />管理工具</Link>}
           <Link to="/star-shards" onClick={() => setOpen(false)}><History size={17} aria-hidden="true" />碎片紀錄</Link>
           <button onClick={logout}><LogOut size={17} aria-hidden="true" />登出</button>
         </div>}

@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react'
 import Avatar from '../components/Avatar'
 
 /** Stored Discord profile; login times are Unix seconds and guild join time is ISO text. */
-type Member = { user_id: string; username: string | null; display_name: string | null; global_name: string | null; nickname: string | null; avatar_url: string | null; guild_joined_at: string | null; created_at: number; last_login_at: number }
+type Member = { user_id: string; access_role: { id: string; key: string; label: string } | null; username: string | null; display_name: string | null; global_name: string | null; nickname: string | null; avatar_url: string | null; guild_joined_at: string | null; created_at: number; last_login_at: number }
 
 /** Fetch the current user's profile with a timeout and offer retry or login as needed. */
 export default function Profile() {
@@ -56,6 +56,7 @@ export default function Profile() {
       <div className="profile-identity"><Avatar src={member.avatar_url} name={member.display_name || member.username || '使用者'} className="profile-avatar" /><div><h2>{member.display_name || member.username || 'SIT 成員'}</h2><p>Discord 帳號</p></div></div>
       <dl className="profile-fields">
         <div><dt>Discord 使用者 ID</dt><dd>{member.user_id}</dd></div>
+        <div><dt>權限 / 身份組</dt><dd>{member.access_role?.label || '尚無身份組資料，請重新登入'}</dd></div>
         <div><dt>帳號名稱</dt><dd>{member.username || '未提供'}</dd></div>
         <div><dt>顯示名稱</dt><dd>{member.display_name || '未提供'}</dd></div>
         <div><dt>Discord 顯示名稱</dt><dd>{member.global_name || '未設定'}</dd></div>

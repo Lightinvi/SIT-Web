@@ -6,6 +6,7 @@ from pathlib import Path
 from flask import Flask
 
 from app.services.discord import DiscordService
+from app.services.roles import ACCESS_ROLES
 
 from app.config import Config
 from app.extensions import init_extensions
@@ -33,7 +34,7 @@ def create_app(config=None):
         DISCORD_BOT_TOKEN=os.environ.get("DISCORD_BOT_TOKEN", ""),
         DISCORD_GUILD_ID="510386488639488001",
         DISCORD_ADMIN_ROLE_IDS=('513295891482804250',),
-        DISCORD_LOGIN_ROLE_IDS=('578156037589172244', '749803225275695156', '513295891482804250'),
+        DISCORD_LOGIN_ROLE_IDS=tuple(role['id'] for role in ACCESS_ROLES),
         DISCORD_CACHE_PATH=str(Path(os.environ.get("STORAGE_PATH", Path(__file__).resolve().parents[2] / "storage")) / "cache"),
         LOG_DIRECTORY=os.environ.get('LOG_DIRECTORY', str(Path(os.environ.get('STORAGE_PATH', Path(__file__).resolve().parents[2] / 'storage')) / 'logs')),
     )
@@ -49,6 +50,7 @@ def create_app(config=None):
 
     from app.api.discord import discord_bp
     from app.api.auth import auth_bp
+    from app.api.admin import admin_bp
     from app.api.users import users_bp
     from app.api.invitations import invitations_bp
     from app.invitations_cli import invitations_cli
@@ -56,6 +58,7 @@ def create_app(config=None):
     from app.api.daily_spinner import spinner_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(shards_bp, url_prefix="/api/star-shards")
     app.register_blueprint(spinner_bp, url_prefix="/api/daily-spinner")
     app.register_blueprint(users_bp, url_prefix="/api/users")

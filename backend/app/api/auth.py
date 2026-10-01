@@ -8,7 +8,8 @@ from urllib.parse import urlencode
 from flask import Blueprint, current_app, jsonify, redirect, request, session
 
 from app.services.oauth import OAuthError, authenticate
-from app.models.member import get_member, record_login
+from app.models.member import ensure_member_schema, get_member, record_login
+from app.services.roles import highest_role
 
 
 auth_bp = Blueprint('auth', __name__)
@@ -18,7 +19,33 @@ def database():
     """Return the app SQL manager after lazily creating OAuth and login-session tables."""
     db = current_app.extensions['sql']
     db.execute('CREATE TABLE IF NOT EXISTS oauth_states (id TEXT PRIMARY KEY, expires REAL NOT NULL)')
-    db.execute('CREATE TABLE IF NOT EXISTS login_sessions (id TEXT PRIMARY KEY, user TEXT NOT NULL, expires REAL NOT NULL)')
+    with db.transaction(immediate=True) as tx:
+        ensure_member_schema(tx)
+        columns = {row['name'] for row in tx.query('PRAGMA table_info(login_sessions)')}
+        if 'user' in columns:
+            ensure_member_schema(tx)
+            rows = tx.query('SELECT * FROM login_sessions ORDER BY expires DESC')
+            tx.execute('ALTER TABLE login_sessions RENAME TO legacy_login_sessions')
+        else:
+            rows = []
+        tx.execute('''CREATE TABLE IF NOT EXISTS login_sessions (
+            id TEXT PRIMARY KEY, userId TEXT NOT NULL REFERENCES member(userId) ON DELETE CASCADE,
+            expires REAL NOT NULL)''')
+        for row in rows:
+            try:
+                user = json.loads(row['user'])
+                user_id = user['id']
+            except (ValueError, KeyError, TypeError):
+                continue
+            members = tx.select('member', {'userId': user_id})
+            if not members or row['expires'] <= time.time():
+                continue
+            if members[0]['roleIds'] is None and isinstance(user.get('role_ids'), list):
+                tx.update('member', {'roleIds': json.dumps(user['role_ids'])}, {'userId': user_id})
+            tx.insert('login_sessions', {'id': row['id'], 'userId': user_id, 'expires': row['expires']})
+        if 'user' in columns:
+            tx.execute('DROP TABLE legacy_login_sessions')
+        tx.execute('CREATE INDEX IF NOT EXISTS login_sessions_userId ON login_sessions(userId)')
     return db
 
 
@@ -100,7 +127,7 @@ def callback():
     logged_in_at = time.time()
     with db.transaction() as tx:
         record_login(tx, user, logged_in_at)
-        tx.insert('login_sessions', {'id': digest(login_id), 'user': json.dumps(user),
+        tx.insert('login_sessions', {'id': digest(login_id), 'userId': user['id'],
                                      'expires': logged_in_at + current_app.permanent_session_lifetime.total_seconds()})
     session['login_id'] = login_id
     session['csrf'] = secrets.token_urlsafe(32)
@@ -109,7 +136,7 @@ def callback():
 
 
 def current_user():
-    """Return the login snapshot or None when the session is missing or expired.
+    """Resolve the session's userId against the authoritative member profile.
 
     Delete an expired database record and clear its browser session on access.
     Reading a valid session does not extend the stored database expiration.
@@ -124,7 +151,14 @@ def current_user():
             db.delete('login_sessions', {'id': digest(login_id)})
         session.clear()
         return None
-    return json.loads(rows[0]['user'])
+    member = get_member(db, rows[0]['userId'])
+    if member is None:
+        db.delete('login_sessions', {'id': digest(login_id)})
+        session.clear()
+        return None
+    return {**member, 'id': member['user_id'],
+            'name': member['display_name'] or member['username'],
+            'access_role': highest_role(member['role_ids'])}
 
 
 @auth_bp.get('/session')
@@ -153,7 +187,7 @@ def profile():
     member = get_member(db, user['id'])
     if member is None:
         return jsonify(error='尚無個人資料，請登出後重新登入。'), 404
-    return jsonify(member=member)
+    return jsonify(member={**member, 'access_role': highest_role(user.get('role_ids'))})
 
 
 @auth_bp.post('/logout')

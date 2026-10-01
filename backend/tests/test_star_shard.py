@@ -33,7 +33,7 @@ class StarShardTests(unittest.TestCase):
                 record_login(tx, {'id': user_id, 'username': 'member' + user_id, 'name': user_id}, 1)
             ensure_schema(tx)
         self.client = self.app.test_client()
-        self.db.insert('login_sessions', {'id': digest('login'), 'user': json.dumps({'id': '111'}), 'expires': time.time() + 1000})
+        self.db.insert('login_sessions', {'id': digest('login'), 'userId': '111', 'expires': time.time() + 1000})
         with self.client.session_transaction() as session:
             session['login_id'] = 'login'
             session['csrf'] = 'token'

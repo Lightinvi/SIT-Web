@@ -136,13 +136,14 @@ class AuthTests(unittest.TestCase):
 
     def test_each_login_role_accepts_live_member(self):
         """Allow each specified role independently through OAuth and profile persistence."""
-        for role in ('578156037589172244', '749803225275695156', '513295891482804250'):
+        for role in ('578156037589172244', '749803225275695156', '513295891482804250', '1555051124334137468'):
             with self.subTest(role=role), patch('app.services.oauth.discord_request', side_effect=[
                 {'access_token': 'token'}, {'id': '123', 'username': 'qualified'},
                 {'user': {'id': '123'}, 'roles': [role]},
             ]):
                 self.assertEqual(self.callback(self.start()).location, '/')
                 self.assertTrue(self.client.get('/api/auth/session').json['authenticated'])
+                self.assertEqual(self.client.get('/api/auth/profile').json['member']['access_role']['id'], role)
                 self.assertEqual(len(self.app.extensions['sql'].select('member')), 1)
 
     def test_missing_or_unrelated_roles_never_create_member(self):
@@ -154,7 +155,7 @@ class AuthTests(unittest.TestCase):
             ]):
                 self.assertIn('insufficient_role', self.callback(self.start()).location)
                 self.assertFalse(self.client.get('/api/auth/session').json['authenticated'])
-                self.assertFalse(self.app.extensions['sql'].table_exists('member'))
+                self.assertEqual(self.app.extensions['sql'].select('member'), [])
                 self.assertEqual(self.app.extensions['sql'].select('login_sessions'), [])
 
     def test_role_loss_or_departure_preserves_existing_profile(self):
@@ -228,7 +229,7 @@ class AuthTests(unittest.TestCase):
         """Ensure failed membership verification does not create a member record."""
         with patch('app.api.auth.authenticate', side_effect=OAuthError('not_member')):
             self.callback(self.start())
-        self.assertFalse(self.app.extensions['sql'].table_exists('member'))
+        self.assertEqual(self.app.extensions['sql'].select('member'), [])
 
     def test_member_and_session_creation_roll_back_together(self):
         """Roll back the member schema and profile when session persistence fails."""
@@ -246,7 +247,7 @@ class AuthTests(unittest.TestCase):
                 with self.assertRaises(sqlite3.OperationalError):
                     self.callback(state)
         db = self.app.extensions['sql']
-        self.assertFalse(db.table_exists('member'))
+        self.assertEqual(db.select('member'), [])
         self.assertEqual(db.select('login_sessions'), [])
         self.assertFalse(self.client.get('/api/auth/session').json['authenticated'])
 
@@ -262,7 +263,7 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers['Cache-Control'], 'no-store')
         self.assertEqual(response.json['member']['user_id'], '123')
-        self.assertEqual(set(response.json['member']), {'user_id', 'username', 'display_name', 'created_at', 'last_login_at', 'global_name', 'nickname', 'avatar_url', 'guild_joined_at'})
+        self.assertEqual(set(response.json['member']), {'user_id', 'username', 'display_name', 'created_at', 'last_login_at', 'global_name', 'nickname', 'avatar_url', 'guild_joined_at', 'access_role', 'role_ids', 'roles_updated_at'})
         csrf = self.client.get('/api/auth/session').json['csrf_token']
         self.client.post('/api/auth/logout', headers={'X-CSRF-Token': csrf})
         self.assertEqual(self.client.get('/api/auth/profile').status_code, 401)
@@ -273,7 +274,7 @@ class AuthTests(unittest.TestCase):
             self.callback(self.start())
         db = self.app.extensions['sql']
         db.delete('member', {'userId': '123'})
-        self.assertEqual(self.client.get('/api/auth/profile').status_code, 404)
+        self.assertEqual(self.client.get('/api/auth/profile').status_code, 401)
         db.execute('UPDATE login_sessions SET expires=0')
         self.assertEqual(self.client.get('/api/auth/profile').status_code, 401)
 
@@ -318,9 +319,9 @@ class AuthTests(unittest.TestCase):
             'Global', None, 'https://example.com/avatar.png', '2020-01-01',
         )))
         db.insert('member', original)
-        self.assertEqual(get_member(db, original['user_id']), original)
-        self.assertEqual(get_member(db, original['user_id']), original)
+        self.assertEqual(get_member(db, original['user_id']), {**original, 'role_ids': [], 'roles_updated_at': None})
+        self.assertEqual(get_member(db, original['user_id']), {**original, 'role_ids': [], 'roles_updated_at': None})
         self.assertEqual(db.select('member'), [
-            {column: original[key] for key, column in PROFILE_COLUMNS.items()}
+            {**{column: original[key] for key, column in PROFILE_COLUMNS.items()}, 'roleIds': None, 'rolesUpdatedAt': None}
         ])
         self.assertIsNone(get_member(db, 'missing'))

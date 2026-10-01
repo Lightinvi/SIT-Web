@@ -47,7 +47,7 @@ class DailySpinnerTests(unittest.TestCase):
             record_login(tx, {'id': '111', 'username': 'alice'}, 1)
             record_login(tx, {'id': '222', 'username': 'bob'}, 1)
             ensure_schema(tx)
-        self.db.insert('login_sessions', {'id': digest('spinner'), 'user': json.dumps({'id': '111'}), 'expires': 4000000000})
+        self.db.insert('login_sessions', {'id': digest('spinner'), 'userId': '111', 'expires': 4000000000})
         self.client = self.app.test_client()
         with self.client.session_transaction() as session:
             session['login_id'] = 'spinner'

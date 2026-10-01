@@ -1,4 +1,6 @@
 """Persistent profiles of users who have passed Discord guild verification."""
+import json
+
 from app.sql import SQLSession
 
 PROFILE_COLUMNS = {
@@ -28,6 +30,10 @@ def ensure_member_schema(tx: SQLSession) -> None:
     for column in ('globalName', 'nickname', 'avatarUrl', 'guildJoinedAt'):
         if column not in columns:
             tx.execute(f'ALTER TABLE member ADD COLUMN {column} TEXT')
+    if 'roleIds' not in columns:
+        tx.execute('ALTER TABLE member ADD COLUMN roleIds TEXT')
+    if 'rolesUpdatedAt' not in columns:
+        tx.execute('ALTER TABLE member ADD COLUMN rolesUpdatedAt REAL')
 
 
 def record_login(tx: SQLSession, user: dict, logged_in_at: float) -> None:
@@ -51,6 +57,8 @@ def record_login(tx: SQLSession, user: dict, logged_in_at: float) -> None:
             guildJoinedAt = excluded.guildJoinedAt
     ''', (user['id'], user.get('username'), user.get('name'), logged_in_at, logged_in_at,
           user.get('global_name'), user.get('nickname'), user.get('avatar_url'), user.get('guild_joined_at')))
+    tx.update('member', {'roleIds': json.dumps(user.get('role_ids', [])),
+                         'rolesUpdatedAt': logged_in_at}, {'userId': user['id']})
 
 
 def get_member(db, user_id):
@@ -62,4 +70,6 @@ def get_member(db, user_id):
         rows = tx.select('member', {'userId': user_id})
     if not rows:
         return None
-    return {key: rows[0].get(column) for key, column in PROFILE_COLUMNS.items()}
+    return {**{key: rows[0].get(column) for key, column in PROFILE_COLUMNS.items()},
+            'role_ids': json.loads(rows[0]['roleIds']) if rows[0]['roleIds'] else [],
+            'roles_updated_at': rows[0]['rolesUpdatedAt']}

@@ -30,7 +30,10 @@ def private_response(response):
 @shards_bp.errorhandler(sqlite3.Error)
 def storage_error(error):
     """Hide storage internals and allow clients to retry with the same request ID."""
-    current_app.logger.exception('Star Shard database operation failed')
+    current_app.logger.exception(
+        'Star Shard database operation failed: %s',
+        error
+    )
     return jsonify(error='暫時無法處理，請稍後重試。'), 503
 
 

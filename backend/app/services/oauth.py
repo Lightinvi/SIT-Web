@@ -79,4 +79,4 @@ def authenticate(code, config):
     return {'global_name': user.get('global_name'), 'nickname': member.get('nick'),
             'avatar_url': avatar_url, 'guild_joined_at': member.get('joined_at'),
             'id': user['id'], 'name': member.get('nick') or user.get('global_name') or user.get('username'),
-            'username': user.get('username')}
+            'username': user.get('username'), 'role_ids': roles}
