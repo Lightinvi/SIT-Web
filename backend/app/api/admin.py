@@ -9,6 +9,7 @@ from app.api.auth import current_user, database
 from app.models.member import ensure_member_schema
 from app.services.discord import DiscordError
 from app.services.roles import highest_role
+from app.services.admin_reader import table_page, log_page
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -46,6 +47,38 @@ def authorize():
 def status():
     """Confirm live authorization without exposing cached member information."""
     return jsonify(authorized=True)
+
+
+@admin_bp.get('/database')
+def tables():
+    """List existing user tables after live web-administrator authorization."""
+    return jsonify(tables=current_app.extensions['sql'].list_tables())
+
+
+@admin_bp.get('/database/<table>')
+def table_rows(table):
+    """Expose a read-only page with validated sorting and a fixed 100-row limit."""
+    try:
+        result = table_page(current_app.extensions['sql'], table, request.args.get('sort'),
+                            request.args.get('direction', 'asc'), int(request.args.get('offset', '0')),
+                            request.args.get('q', ''), request.args.get('column'))
+        return jsonify(result)
+    except (ValueError, OverflowError):
+        return jsonify(error='資料表、排序或分頁參數無效。'), 400
+
+
+@admin_bp.get('/log')
+def logs():
+    """Return application JSON logs without exposing file-system paths."""
+    try:
+        return jsonify(log_page(current_app.config['LOG_DIRECTORY'], current_app.secret_key,
+                                request.args.get('cursor')))
+    except ValueError:
+        return jsonify(error='分頁參數無效，請重新整理。'), 400
+    except LookupError:
+        return jsonify(error='紀錄已輪替，請重新整理。'), 409
+    except OSError:
+        return jsonify(error='暫時無法讀取後端紀錄。'), 503
 
 
 @admin_bp.post('/sync')

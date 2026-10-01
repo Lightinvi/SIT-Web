@@ -1,7 +1,8 @@
 /** Administration screen authorized by the backend's live Discord role check. */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Database, ScrollText, ShieldCheck, RefreshCw } from 'lucide-react'
+import './AdminViewer.css'
 
 /** Synchronize guild caches and stored permissions without exposing member lists. */
 export default function Admin() {
@@ -43,14 +44,18 @@ export default function Admin() {
     } finally { setBusy(false) }
   }
 
-  return <section className="profile-page" aria-labelledby="admin-title">
+  return <section className="admin-viewer admin-home" aria-labelledby="admin-title">
     <Link to="/" className="profile-back"><ArrowLeft size={16} aria-hidden="true" />返回首頁</Link>
-    <h1 id="admin-title">管理工具</h1>
+    <div className="admin-heading"><h1 id="admin-title">管理工具</h1><ShieldCheck size={24} aria-hidden="true" /></div>
     {state === 'loading' && <p role="status">驗證權限中…</p>}
     {state === 'error' && <button className="account-button" onClick={() => setAttempt(value => value + 1)}>重新載入</button>}
     {state === 'ready' && <>
-      <h2>權限與 Discord 快取</h2>
-      <button className="account-button" disabled={busy} onClick={synchronize}><RefreshCw size={17} aria-hidden="true" />{busy ? '同步中…' : '同步權限與快取'}</button>
+      <nav aria-label="管理功能" className="admin-tools">
+        <Link to="/admin/database"><Database size={24} aria-hidden="true" /><span>資料庫</span><ArrowRight size={18} aria-hidden="true" /></Link>
+        <Link to="/admin/log"><ScrollText size={24} aria-hidden="true" /><span>後端紀錄</span><ArrowRight size={18} aria-hidden="true" /></Link>
+      </nav>
+      <div className="admin-sync-row"><h2><ShieldCheck size={20} aria-hidden="true" />權限與 Discord 快取</h2>
+      <button className="admin-sync-button" disabled={busy} onClick={synchronize}><RefreshCw size={17} aria-hidden="true" className={busy ? 'admin-spinning' : ''} />{busy ? '同步中…' : '同步權限與快取'}</button></div>
     </>}
     {message && <p className="profile-notice" role="status">{message}</p>}
   </section>

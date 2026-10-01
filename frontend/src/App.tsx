@@ -10,6 +10,7 @@ import Home from './pages/Home'
 import DailySpinner from './pages/DailySpinner'
 import Profile from './pages/Profile'
 import Admin from './pages/Admin'
+import AdminViewer from './pages/AdminViewer'
 import ShardHistory from './pages/ShardHistory'
 import InvitationDialog from './components/InvitationDialog'
 import { Link, Route, Routes } from 'react-router-dom'
@@ -60,6 +61,8 @@ function App() {
           <Route path="/daily-spinner" element={<DailySpinner />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/database" element={<AdminViewer key="database" mode="database" />} />
+          <Route path="/admin/log" element={<AdminViewer key="log" mode="log" />} />
           <Route path="/star-shards" element={<ShardHistory />} />
           <Route path="*" element={<section className="profile-page"><h1>找不到此頁面</h1><Link to="/">返回首頁</Link></section>} />
         </Routes>
