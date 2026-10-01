@@ -117,7 +117,7 @@ export default function Blackjack() {
     <div className="bj-table" aria-label="21 點牌桌" aria-busy={busy || animating}>
       <div className="bj-deck" aria-hidden="true"><PlayingCard card={null} /><span>SHOE / 5 DECKS</span></div>
       <section className="bj-dealer"><h2>莊家 <span>{round ? round.dealerTotal : '—'} 點{round && !settled && '（明牌）'}</span></h2><div className="bj-cards">{round ? round.dealer.map((card, index) => <PlayingCard key={`${round.id}:dealer:${index}`} card={card} delay={index * 140} />) : <><PlayingCard card={null} /><PlayingCard card={null} delay={140} /></>}</div></section>
-      <div className="bj-table-mark" aria-hidden="true">BLACKJACK PAYS 3:2<span>DEALER STANDS ON SOFT 17</span></div>
+      <div className="bj-table-mark" aria-hidden="true">BLACKJACK<span>Star Impact Team</span></div>
       <div className="bj-hands">{round ? round.hands.map((item, index) => <section key={`${round.id}:${index}`} className={`bj-player-hand ${!settled && round.activeHand === index ? 'is-active' : ''}`}>
         <h2>{round.hands.length > 1 ? `手牌 ${index + 1}` : '你的手牌'} <span>{item.total} 點</span></h2>
         <div className="bj-cards">{item.cards.map((card, cardIndex) => <PlayingCard key={card.id} card={card} delay={cardIndex * 140} />)}</div>
