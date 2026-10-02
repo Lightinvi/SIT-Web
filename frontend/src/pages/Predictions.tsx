@@ -222,7 +222,7 @@ export default function Predictions() {
   const disabled = loading || busy || Boolean(pending)
   return <section className="prediction-page">
     <Link className="profile-back" to={marketId ? '/predictions' : '/'}><ArrowLeft size={16} />{marketId ? '返回預測列表' : '返回功能導覽'}</Link>
-    <header className="prediction-heading"><div><h1>預測系統</h1><p>星之碎片 · 比例分配預測池</p></div><div className="prediction-wallet"><img src={shardIcon} alt="星之碎片" />{session?.balance.toLocaleString() ?? '—'}</div></header>
+    <header className="prediction-heading"><div><h1>預測系統</h1><p>星之碎片 · 比例分配預測池</p></div></header>
     <div className="prediction-toolbar">{!marketId && <form className="prediction-filters" onSubmit={event => {
       event.preventDefault()
       if (!dates.start || !dates.end || dates.start > dates.end) { setDateError('起始日期不得晚於結束日期。'); return }

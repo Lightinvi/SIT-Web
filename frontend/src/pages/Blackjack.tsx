@@ -108,7 +108,7 @@ export default function Blackjack() {
   const validBet = Number.isSafeInteger(amount) && amount >= 2 && amount % 2 === 0 && amount <= (state?.balance || 0)
   return <section className="blackjack-page">
     <Link to="/" className="profile-back"><ArrowLeft size={16} />返回功能導覽</Link>
-    <header className="bj-heading"><div><h1>21 點</h1><p>BLACKJACK · 美式規則 · 1 對 1</p></div><div className="bj-wallet"><img src={shardIcon} alt="星之碎片" /><strong>{state?.balance.toLocaleString() ?? '—'}</strong></div></header>
+    <header className="bj-heading"><div><h1>21 點</h1><p>BLACKJACK · 美式規則 · 1 對 1</p></div></header>
     <div className="bj-topline"><span><Layers size={16} />全站共用牌堆 · 5 副 / 260 張</span></div>
     {loading && <p role="status">載入牌局中…</p>}
     {anonymous && <p className="bj-notice"><a href="/api/auth/discord/login">登入後遊玩</a></p>}
