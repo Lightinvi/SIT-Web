@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, CopyPlus, Hand, Layers, Play, Plus, RefreshCw, ShieldCheck, ShieldOff } from 'lucide-react'
-import shardIcon from '../assets/star_shard.png'
 import './Blackjack.css'
 
 type Card = { id: string; face: string }
