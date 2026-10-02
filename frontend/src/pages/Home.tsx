@@ -1,6 +1,6 @@
 /** Signed-in feature navigation with reserved grid tracks and an expandable introduction. */
 import type { ReactNode } from 'react'
-import { ArrowLeft, ArrowUpRight, CircleHelp, Disc3, Spade } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, CircleHelp, Disc3, Spade, TrendingUp } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import type { LoginSession } from '../components/Account'
 import teamLogo from '../assets/SIT隊徽(去背).png'
@@ -26,6 +26,9 @@ export default function Home({ account, children }: { account: LoginSession | nu
       </Link>
       <Link className="home-feature" to="/blackjack">
         <div className="home-poker" aria-hidden="true" /><span><Spade size={18} />21 點</span><ArrowUpRight className="home-feature-arrow" size={18} />
+      </Link>
+      <Link className="home-feature" to="/predictions">
+        <img src={shardIcon} alt="" /><span><TrendingUp size={18} />預測系統</span><ArrowUpRight className="home-feature-arrow" size={18} />
       </Link>
     </div>
   </section>
