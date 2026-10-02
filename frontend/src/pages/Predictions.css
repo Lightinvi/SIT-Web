@@ -23,6 +23,9 @@
 .prediction-toolbar > .prediction-actions { align-self: end; }
 .prediction-toolbar input, .prediction-toolbar select, .prediction-dialog input:not([type=radio]), .prediction-dialog textarea { font: inherit; padding: 10px; border: 1px solid #bcc9cd; border-radius: 6px; background: white; color: #26363b; min-width: 0; max-width: 100%; }
 .prediction-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.prediction-share { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; min-width: 0; }
+.prediction-share-fallback { width: 100%; min-width: 0; }
+.prediction-share-fallback input { width: 100%; min-width: 0; padding: 10px; border: 1px solid #bcc9cd; border-radius: 6px; font: inherit; background: white; color: #26363b; }
 .prediction-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 24px 0; }
 .prediction-list.is-detail { grid-template-columns: minmax(0, 1fr); }
 .prediction-market { border: 1px solid #d5dfe0; border-radius: 8px; padding: 22px; background: #fff; min-width: 0; }

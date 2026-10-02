@@ -2,8 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Select from 'react-select'
-import { ArrowLeft, ArrowRight, Check, Clock, Edit3, Plus, RefreshCw, Search, ShieldCheck, Trash2, Trophy, X } from 'lucide-react'
-import shardIcon from '../assets/star_shard.png'
+import { ArrowLeft, ArrowRight, Check, Clock, Edit3, Plus, RefreshCw, Search, Share2, ShieldCheck, Trash2, Trophy, X } from 'lucide-react'
 import './Predictions.css'
 
 type Option = { id: string; label: string; total: number; ownAmount: number; odds: number | null }
@@ -133,6 +132,32 @@ function MarketDialog({ mode, market, sponsor, balance, locked, onClose, onSubmi
   </dialog>
 }
 
+/** Copy a canonical market link without including filters or session information. */
+function PredictionShare({ marketId }: { marketId: string }) {
+  const [result, setResult] = useState<'copied' | 'manual' | null>(null)
+  const [copying, setCopying] = useState(false)
+  const url = new URL(`/predictions/${encodeURIComponent(marketId)}`, window.location.origin).href
+
+  async function copyLink() {
+    setCopying(true)
+    setResult(null)
+    try {
+      await navigator.clipboard.writeText(url)
+      setResult('copied')
+    } catch {
+      setResult('manual')
+    } finally {
+      setCopying(false)
+    }
+  }
+
+  return <div className="prediction-share">
+    <button type="button" title="複製預測盤連結" disabled={copying} onClick={copyLink}><Share2 size={16} />分享連結</button>
+    {result === 'copied' && <span className="prediction-muted" role="status">連結已複製</span>}
+    {result === 'manual' && <div className="prediction-share-fallback"><p className="prediction-muted" role="status">無法自動複製，請複製下方連結。</p><input aria-label="預測盤分享連結" readOnly value={url} onFocus={event => event.currentTarget.select()} /></div>}
+  </div>
+}
+
 /** Browse active and historic markets, with member betting and live manager tools. */
 export default function Predictions() {
   const { marketId } = useParams()
@@ -253,6 +278,7 @@ export default function Predictions() {
         <table><thead><tr><th>選項</th><th>押注總額</th><th>當前賠率</th></tr></thead><tbody>{market.options.map(option => <tr key={option.id} className={market.winnerId === option.id ? 'is-winner' : ''}><td>{market.winnerId === option.id && <Trophy size={15} aria-label="獲勝" />}{option.label}{option.ownAmount > 0 && <small>你的押注 {option.ownAmount.toLocaleString()}</small>}</td><td>{option.total.toLocaleString()}</td><td>{odds(option.odds)}</td></tr>)}</tbody></table>
         <p className="prediction-muted">賠率含本金，依結算時池額計算。</p>
         {market.status !== 'active' && <p className="prediction-settled">{market.settlementMode === 'refund' ? '本盤已退款，基礎獎勵未派發。' : '本盤已完成比例分配。'}你的下注 {market.ownAmount.toLocaleString()} · 領回 {market.ownPayout.toLocaleString()}</p>}
+        <PredictionShare marketId={market.id} />
         <div className="prediction-actions">{openNow && <button className="prediction-primary" disabled={disabled || !session || session.balance < 1} onClick={() => open('bet', market)}><Plus size={17} />押注</button>}{permissions.canManage && market.status === 'active' && <><button disabled={disabled} onClick={() => open('edit', market)}><Edit3 size={16} />編輯</button><button disabled={disabled || clock < market.settlesAt} onClick={() => open('settle', market)}><Trophy size={16} />公布結果</button><button disabled={disabled} onClick={() => open('cancel', market)}><X size={16} />取消預測盤</button></>}</div>
       </article>
     })}</div>
