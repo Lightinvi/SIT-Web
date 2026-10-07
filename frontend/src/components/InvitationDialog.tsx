@@ -1,4 +1,4 @@
-/** Accessible Discord invitation picker backed by database settings and click records. */
+/** Accessible Discord invitation picker backed by dynamic invites and click records. */
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowUpRight, Check, LoaderCircle, ShieldCheck, UserRound, Users, X } from 'lucide-react'
@@ -118,7 +118,7 @@ export default function InvitationDialog({ onClose }: { onClose: () => void }) {
       {error && <p className="invitation-error" role="alert">{error}</p>}
       {!loading && !invitations.length && error && <button type="button" className="invitation-retry" onClick={() => { setError(''); setLoading(true); setAttempt(value => value + 1) }}>重新載入</button>}
       <div className="invitation-footer">
-        <p id="invitation-contact">若邀請連結失效，請聯繫 <span>discord/@lightinvi</span></p>
+        <p id="invitation-contact">邀請連結限使用一次，10 分鐘內有效。若連結失效，請重新取得或聯繫 <span>discord/@lightinvi</span></p>
         <button className="invitation-submit" type="submit" disabled={loading || sending || !choice || choice.isExpired || (choice.requiresCode && !code.trim())}>
           {sending ? <><LoaderCircle size={17} />處理中…</> : <>前往 Discord<ArrowUpRight size={17} /></>}
         </button>

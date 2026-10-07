@@ -1,11 +1,11 @@
-"""Serve database-driven join options and validate attributed invitation clicks."""
+"""Serve dynamic join options and validate attributed invitation clicks."""
 import secrets
 import sqlite3
 import uuid
 
 from flask import Blueprint, current_app, jsonify, request, session
 
-from app.models.invitation import ROLES, InvitationError, ensure_schema, get_invitation, record_click
+from app.models.invitation import ROLES, InvitationError, ensure_schema, INVITATIONS, record_click
 from app.services.discord import DiscordError
 
 invitations_bp = Blueprint('invitations', __name__)
@@ -22,6 +22,15 @@ def no_cache(response):
 def invalid_invitation(error):
     """Return an actionable validation error without disclosing a protected invite code."""
     return jsonify(error=str(error)), error.status
+
+
+@invitations_bp.errorhandler(DiscordError)
+def discord_failure(error):
+    """Return sanitized upstream errors with retry guidance."""
+    response = jsonify(error=str(error))
+    response.status_code = error.status
+    response.headers['Retry-After'] = str(error.retry_after)
+    return response
 
 
 @invitations_bp.errorhandler(sqlite3.Error)
@@ -42,11 +51,10 @@ def list_invitations():
         session['invitation_csrf'] = secrets.token_urlsafe(32)
     if 'invitation_visitor' not in session:
         session['invitation_visitor'] = secrets.token_urlsafe(24)
-    rows = {row['role']: row for row in db.select('invitation_url')}
     return jsonify(invitations=[{
-        'role': role, 'description': rows[role]['description'],
-        'isExpired': bool(rows[role]['isExpired']), 'requiresCode': role == ROLES[2],
-    } for role in ROLES if role in rows], csrf_token=session['invitation_csrf'])
+        'role': role, 'description': INVITATIONS[role]['description'],
+        'isExpired': not bool(current_app.extensions['discord'].token), 'requiresCode': role == ROLES[2],
+    } for role in ROLES], csrf_token=session['invitation_csrf'])
 
 
 @invitations_bp.post('/click')
@@ -68,7 +76,6 @@ def click_invitation():
     role = payload['role']
     db = current_app.extensions['sql']
     ensure_schema(db)
-    get_invitation(db, role)
     administrator = None
     if role == ROLES[2]:
         username = payload.get('administrator_code')
@@ -81,5 +88,5 @@ def click_invitation():
             return jsonify(error='目前無法驗證代碼，請稍後再試。'), error.status
         if administrator is None:
             raise InvitationError('找不到此代碼，請確認後再試。')
-    record = record_click(db, role, session['invitation_visitor'], request_id, administrator)
+    record = record_click(db, role, session['invitation_visitor'], request_id, administrator, discord=current_app.extensions['discord'])
     return jsonify(record_id=record['id'], url=f"https://discord.com/invite/{record['code']}")

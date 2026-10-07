@@ -8,7 +8,7 @@ from unittest.mock import patch
 import uuid
 
 from app import create_app
-from app.models.invitation import ROLES, ensure_schema, record_click
+from app.models.invitation import ROLES, InvitationError, ensure_schema, record_click
 from app.services.discord import DiscordError
 from app.sql import SQLSession
 
@@ -25,6 +25,8 @@ class InvitationTests(unittest.TestCase):
         self.client = self.app.test_client()
         self.db = self.app.extensions['sql']
         self.service = self.app.extensions['discord']
+        self.invites = patch.object(self.service, 'create_invite', return_value='dynamicCode').start()
+        self.addCleanup(patch.stopall)
         self.settings = self.client.get('/api/invitations').json
         self.admin = {'user': {'id': '12345', 'username': 'lightinvi'},
                       'roles': ['513295891482804250']}
@@ -39,14 +41,12 @@ class InvitationTests(unittest.TestCase):
     def test_defaults_and_protected_url_not_exposed(self):
         """Seed the three requested options while keeping raw invite codes out of GET."""
         self.assertEqual([item['role'] for item in self.settings['invitations']], list(ROLES))
-        self.assertEqual([row['code'] for row in self.db.select('invitation_url', order_by='rowid')],
-                         ['rnTHPNfjMx', 'HgtKZUX72K', 'UDNkUgQ4Yy'])
-        self.assertNotIn('UDNkUgQ4Yy', str(self.settings))
+        self.assertNotIn('invitation_url', self.db.list_tables())
         self.assertEqual(self.settings['invitations'][2]['requiresCode'], True)
 
     def test_guest_and_member_clicks_are_not_joins(self):
         """Record separate clicks without inventing Discord join status or referrers."""
-        for role, code in ((ROLES[0], 'rnTHPNfjMx'), (ROLES[1], 'HgtKZUX72K')):
+        for role, code in ((ROLES[0], 'dynamicCode'), (ROLES[1], 'dynamicCode')):
             result = self.click(role, 'untrusted-referrer')
             self.assertEqual(result.status_code, 200)
             self.assertEqual(result.json['url'], f'https://discord.com/invite/{code}')
@@ -65,7 +65,7 @@ class InvitationTests(unittest.TestCase):
         row = self.db.select('invitation_record')[0]
         self.assertEqual(row['administratorId'], '12345')
         self.assertEqual(row['administratorUsername'], 'lightinvi')
-        self.assertEqual(row['invitationCode'], 'UDNkUgQ4Yy')
+        self.assertEqual(row['invitationCode'], 'dynamicCode')
 
     def test_invalid_regular_codes_and_nonadministrators_rejected(self):
         """Reject missing codes, non-admin users, bots, and pending guild members."""
@@ -88,24 +88,28 @@ class InvitationTests(unittest.TestCase):
         self.assertNotIn('private-detail', response.get_data(as_text=True))
         self.assertEqual(self.db.select('invitation_record'), [])
 
-    def test_database_updates_take_effect_without_reseeding(self):
-        """Read changed descriptions and codes immediately while retaining old history."""
+    def test_static_table_removed_without_losing_history(self):
         self.click()
-        self.db.update('invitation_url', {'code': 'newGuest', 'description': '更新的描述'}, {'role': ROLES[0]})
-        response = self.client.get('/api/invitations')
-        self.assertEqual(response.json['invitations'][0]['description'], '更新的描述')
-        self.assertEqual(self.click().json['url'], 'https://discord.com/invite/newGuest')
-        self.assertEqual(self.db.select('invitation_record', order_by='rowid')[0]['invitationCode'], 'rnTHPNfjMx')
-        self.db.delete('invitation_url', {'role': ROLES[0]})
-        self.client.get('/api/invitations')
-        self.assertEqual(self.db.select('invitation_url', {'role': ROLES[0]}), [])
-        self.assertEqual(self.click().status_code, 410)
+        history = self.db.select('invitation_record')
+        self.db.execute('CREATE TABLE invitation_url (code TEXT)')
+        self.db.insert('invitation_url', {'code': 'oldCode'})
+        ensure_schema(self.db)
+        ensure_schema(self.db)
+        self.assertNotIn('invitation_url', self.db.list_tables())
+        self.assertEqual(self.db.select('invitation_record'), history)
 
-    def test_expired_invites_are_disabled_and_rejected(self):
-        """Reject direct clicks after an administrator marks a displayed invite expired."""
-        self.db.update('invitation_url', {'isExpired': 1}, {'role': ROLES[0]})
-        self.assertTrue(self.client.get('/api/invitations').json['invitations'][0]['isExpired'])
-        self.assertEqual(self.click().status_code, 410)
+    def test_expired_retry_rejected(self):
+        request_id = str(uuid.uuid4())
+        self.click(request_id=request_id)
+        with patch('app.models.invitation.time.time', return_value=self.db.select('invitation_record')[0]['clickedAt'] + 600):
+            self.assertEqual(self.click(request_id=request_id).status_code, 410)
+        self.invites.assert_called_once()
+
+    def test_creation_failure_has_no_record(self):
+        self.invites.side_effect = DiscordError('Discord unavailable', 503, 12)
+        response = self.click()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.headers['Retry-After'], '12')
         self.assertEqual(self.db.select('invitation_record'), [])
 
     def test_invalid_input_and_missing_csrf_never_record(self):
@@ -113,8 +117,6 @@ class InvitationTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/invitations/click', json={}).status_code, 403)
         self.assertEqual(self.click('unknown').status_code, 400)
         self.assertEqual(self.click(request_id='invalid').status_code, 400)
-        self.db.update('invitation_url', {'code': 'https://evil.example'}, {'role': ROLES[0]})
-        self.assertEqual(self.click().status_code, 410)
         self.assertEqual(self.db.select('invitation_record'), [])
 
     def test_retries_count_once_but_new_clicks_count_again(self):
@@ -131,12 +133,12 @@ class InvitationTests(unittest.TestCase):
         def save(_):
             """Initialize schema and replay the same browser action from another worker."""
             ensure_schema(self.db)
-            return record_click(self.db, ROLES[0], 'same-browser', request_id)
+            return record_click(self.db, ROLES[0], 'same-browser', request_id, discord=self.service)
         with ThreadPoolExecutor(max_workers=4) as executor:
             results = list(executor.map(save, range(4)))
         self.assertTrue(all(result == results[0] for result in results))
         self.assertEqual(len(self.db.select('invitation_record')), 1)
-        self.assertEqual(len(self.db.select('invitation_url')), 3)
+        self.invites.assert_called_once()
 
     def test_failed_record_write_never_returns_redirect(self):
         """Require a committed audit record before releasing the Discord URL."""
@@ -186,8 +188,9 @@ class InvitationTests(unittest.TestCase):
             'clickedAt': 123456.0, 'eventType': 'click',
         }
         self.assertEqual(self.db.select('invitation_record'), [expected])
-        retry = record_click(self.db, ROLES[2], 'browser', request_id, self.admin['user'])
-        self.assertEqual(retry, {'id': migrated_id, 'code': 'UDNkUgQ4Yy'})
+        with self.assertRaises(InvitationError) as expired:
+            record_click(self.db, ROLES[2], 'browser', request_id, self.admin['user'])
+        self.assertEqual(expired.exception.status, 410)
         with self.assertRaises(sqlite3.IntegrityError):
             self.db.insert('invitation_record', {**expected, 'id': 43})
         with self.assertRaises(sqlite3.IntegrityError):
@@ -196,14 +199,3 @@ class InvitationTests(unittest.TestCase):
             })
         self.assertEqual(self.click().status_code, 200)
         self.assertEqual(len(self.db.select('invitation_record')), 2)
-
-    def test_cli_changes_and_disables_settings(self):
-        """Let an operator edit persisted settings without rebuilding the frontend."""
-        runner = self.app.test_cli_runner()
-        result = runner.invoke(args=['invitations', 'set', '--role', ROLES[0], '--code', 'edited',
-                                     '--description', '新的介紹', '--expired'])
-        self.assertEqual(result.exit_code, 0, result.output)
-        row = self.db.select('invitation_url', {'role': ROLES[0]})[0]
-        self.assertEqual((row['code'], row['description'], row['isExpired']), ('edited', '新的介紹', 1))
-        result = runner.invoke(args=['invitations', 'set', '--role', ROLES[0], '--code', 'https://bad.example'])
-        self.assertNotEqual(result.exit_code, 0)

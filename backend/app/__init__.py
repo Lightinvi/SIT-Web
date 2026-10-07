@@ -53,7 +53,6 @@ def create_app(config=None):
     from app.api.admin import admin_bp
     from app.api.users import users_bp
     from app.api.invitations import invitations_bp
-    from app.invitations_cli import invitations_cli
     from app.api.star_shard import shards_bp
     from app.api.daily_spinner import spinner_bp
     from app.api.blackjack import blackjack_bp
@@ -67,7 +66,6 @@ def create_app(config=None):
     app.register_blueprint(prediction_bp, url_prefix="/api/predictions")
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(invitations_bp, url_prefix="/api/invitations")
-    app.cli.add_command(invitations_cli)
 
     app.register_blueprint(discord_bp, url_prefix="/api/discord")
 

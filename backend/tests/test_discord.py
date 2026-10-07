@@ -24,6 +24,25 @@ class DiscordTests(unittest.TestCase):
         self.client = self.app.test_client()
         self.service = self.app.extensions['discord']
 
+    def test_create_invites_use_requested_membership_and_limits(self):
+        """Verify actual Bot POST URLs and JSON for all three membership choices."""
+        from app.models.invitation import INVITATIONS
+        import json
+        for settings in INVITATIONS.values():
+            with self.subTest(settings=settings), patch('app.services.discord.urlopen', return_value=BytesIO(b'{"code":"freshCode"}')) as send:
+                result = self.service.create_invite(**{key: value for key, value in settings.items() if key != 'description'})
+                self.assertEqual(result, 'freshCode')
+                request = send.call_args.args[0]
+                self.assertEqual(request.full_url, f"https://discord.com/api/v10/channels/{settings['channel_id']}/invites")
+                self.assertEqual(request.get_method(), 'POST')
+                self.assertEqual(request.get_header('Authorization'), 'Bot test-secret')
+                payload = json.loads(request.data)
+                self.assertEqual(payload['max_age'], 600)
+                self.assertEqual(payload['max_uses'], 1)
+                self.assertTrue(payload['unique'])
+                self.assertEqual(payload['temporary'], settings['temporary'])
+                self.assertEqual(payload.get('role_ids', []), settings['role_ids'])
+
     def test_daily_cache_persists_and_expires(self):
         """Reuse disk cache across app instances until the exact one-day expiry."""
         with patch.object(DiscordService, '_fetch', return_value=[]) as fetch:

@@ -28,15 +28,18 @@ class DiscordService:
         self.guild_id = guild_id
         self.cache_path = Path(cache_path)
 
-    def _request(self, resource, query=''):
+    def _request(self, resource, query='', *, path=None, payload=None):
         """Fetch one Discord list response with bot authorization and a 15-second timeout.
 
         Validate the response shape and translate upstream failures into sanitized
         DiscordError instances, preserving a usable rate-limit retry delay.
         """
         request = Request(
-            f'https://discord.com/api/v10/guilds/{self.guild_id}/{resource}{query}',
+            f'https://discord.com/api/v10/{path or f"guilds/{self.guild_id}/{resource}{query}"}',
+            data=json.dumps(payload).encode() if payload is not None else None,
+            method='POST' if payload is not None else 'GET',
             headers={'Authorization': f'Bot {self.token}',
+                     'Content-Type': 'application/json',
                      'User-Agent': 'SIT-Web (Discord guild reader, 1.0)'},
         )
         try:
@@ -54,7 +57,7 @@ class DiscordService:
             error.close()
             messages = {
                 401: 'Discord Bot 驗證失敗，請確認 DISCORD_BOT_TOKEN。',
-                403: 'Discord 拒絕存取，請確認 Bot 已加入群組，並啟用 Server Members Intent。',
+                403: 'Discord 拒絕存取，請確認 Bot 的頻道與角色權限，以及 Server Members Intent 設定。',
                 404: '找不到 Discord 群組或資源。',
                 429: 'Discord 請求過於頻繁，請稍後再試。',
             }
@@ -62,6 +65,11 @@ class DiscordService:
                                503 if error.code == 429 else 502, retry_after) from None
         except (URLError, OSError, ValueError):
             raise DiscordError('無法讀取 Discord 資料，請稍後再試。') from None
+        if path is not None:
+            from app.models.invitation import valid_code
+            if not isinstance(data, dict) or not valid_code(data.get('code')):
+                raise DiscordError('Discord 回傳的邀請格式不正確。')
+            return data
         if resource.startswith('members/'):
             if not isinstance(data, dict) or not isinstance(data.get('roles'), list):
                 raise DiscordError('Discord 回傳的資料格式不正確。')
@@ -69,6 +77,18 @@ class DiscordService:
         if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
             raise DiscordError('Discord 回傳的資料格式不正確。')
         return data
+
+    def create_invite(self, channel_id, role_ids, temporary):
+        """Create a fresh single-use ten-minute invite with membership settings."""
+        from app.models.invitation import INVITE_MAX_AGE
+        if not self.token:
+            raise DiscordError('尚未設定 DISCORD_BOT_TOKEN。', 503)
+        payload = {'max_age': INVITE_MAX_AGE, 'max_uses': 1,
+                   'unique': True, 'temporary': temporary}
+        if role_ids:
+            payload['role_ids'] = role_ids
+        return self._request('invites', path=f'channels/{channel_id}/invites',
+                             payload=payload)['code']
 
     def find_administrator(self, username, role_ids):
         """Verify a referral username against live guild members with configured roles.

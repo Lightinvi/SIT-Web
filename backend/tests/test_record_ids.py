@@ -12,7 +12,7 @@ from app.models.member import record_login
 from app.models.record_ids import migrate_record_ids, new_record_id
 from app.models.star_shard import append_entry, balance, ensure_schema, transfer
 from app.models.daily_spinner import spin
-from app.models.invitation import ROLES, ensure_schema as ensure_invitations, record_click
+from app.models.invitation import ROLES, InvitationError, ensure_schema as ensure_invitations, record_click
 from app.sql import SQLSession
 
 
@@ -99,7 +99,9 @@ class RecordIdTests(unittest.TestCase):
         self.assertEqual(transfer(self.db, '111', '222', 3, self.transfer_request)['recordId'], ledger[1]['id'])
         self.assertEqual(spin(self.db, '111', self.spin_request)['result']['id'], spinner['id'])
         ensure_invitations(self.db)
-        self.assertEqual(record_click(self.db, ROLES[0], 'browser', self.invite_request)['id'], invitation['id'])
+        with self.assertRaises(InvitationError) as expired:
+            record_click(self.db, ROLES[0], 'browser', self.invite_request)
+        self.assertEqual(expired.exception.status, 410)
         self.migrate()
         self.assertEqual(self.db.select('star_shard', order_by='sequence'), ledger)
 
