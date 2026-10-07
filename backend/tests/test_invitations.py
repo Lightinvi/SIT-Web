@@ -119,13 +119,60 @@ class InvitationTests(unittest.TestCase):
         self.assertEqual(self.click(request_id='invalid').status_code, 400)
         self.assertEqual(self.db.select('invitation_record'), [])
 
-    def test_retries_count_once_but_new_clicks_count_again(self):
-        """Make request retries idempotent without suppressing subsequent deliberate clicks."""
+    def test_retries_and_new_clicks_reuse_visitor_invite(self):
+        """Different request IDs from one visitor must not generate additional invites."""
         request_id = str(uuid.uuid4())
         first = self.click(request_id=request_id)
         self.assertEqual(self.click(request_id=request_id).json, first.json)
-        self.click()
+        self.assertEqual(self.click().json, first.json)
+        self.assertEqual(len(self.db.select('invitation_record')), 1)
+        self.invites.assert_called_once()
+
+    def test_expiry_uses_original_creation_time(self):
+        first = self.click()
+        created = self.db.select('invitation_record')[0]['clickedAt']
+        with patch('app.models.invitation.time.time', return_value=created + 599):
+            self.assertEqual(self.click().json, first.json)
+        self.invites.return_value = 'newCode'
+        with patch('app.models.invitation.time.time', return_value=created + 600):
+            second = self.click()
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json['url'], 'https://discord.com/invite/newCode')
+        self.assertNotEqual(first.json['record_id'], second.json['record_id'])
+        self.assertEqual(self.invites.call_count, 2)
         self.assertEqual(len(self.db.select('invitation_record')), 2)
+
+    def test_other_visitor_gets_separate_invitation(self):
+        record_click(self.db, ROLES[0], 'visitor-a', str(uuid.uuid4()), discord=self.service)
+        record_click(self.db, ROLES[0], 'visitor-b', str(uuid.uuid4()), discord=self.service)
+        self.assertEqual(self.invites.call_count, 2)
+
+    def test_changed_role_gets_separate_invitation(self):
+        self.invites.side_effect = ['regularCode', 'guestCode', 'memberCode']
+        with patch.object(self.service, '_fetch', return_value=[self.admin]):
+            regular = self.click(ROLES[2], 'lightinvi')
+        guest = self.click(ROLES[0])
+        member = self.click(ROLES[1])
+        self.assertEqual(regular.json['url'], 'https://discord.com/invite/regularCode')
+        self.assertEqual(guest.json['url'], 'https://discord.com/invite/guestCode')
+        self.assertEqual(member.json['url'], 'https://discord.com/invite/memberCode')
+        self.assertEqual(self.click(ROLES[0]).json, guest.json)
+        self.assertEqual(self.click(ROLES[1]).json, member.json)
+        with patch.object(self.service, '_fetch', return_value=[self.admin]):
+            self.assertEqual(self.click(ROLES[2], 'lightinvi').json, regular.json)
+        rows = self.db.select('invitation_record')
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(next(row for row in rows if row['role'] == ROLES[2])['administratorId'], '12345')
+        self.assertEqual(self.invites.call_count, 3)
+
+    def test_concurrent_distinct_clicks_generate_one_visitor_invite(self):
+        def save(_):
+            return record_click(self.db, ROLES[0], 'same-browser', str(uuid.uuid4()), discord=self.service)
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = list(executor.map(save, range(4)))
+        self.assertTrue(all(result == results[0] for result in results))
+        self.assertEqual(len(self.db.select('invitation_record')), 1)
+        self.invites.assert_called_once()
 
     def test_concurrent_initialization_and_retry_are_atomic(self):
         """Prevent concurrent workers from duplicating defaults or one click record."""

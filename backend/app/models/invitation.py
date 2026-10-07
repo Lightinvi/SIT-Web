@@ -43,13 +43,16 @@ def ensure_schema(db):
             if old in columns:
                 tx.execute(f'ALTER TABLE invitation_record RENAME COLUMN "{old}" TO "{new}"')
         tx.execute('DROP TABLE IF EXISTS invitation_url')
+        tx.execute('DROP INDEX IF EXISTS invitation_record_visitor_latest')
+        tx.execute('CREATE INDEX IF NOT EXISTS invitation_record_visitor_role_latest '
+                   'ON invitation_record(visitorId, role, clickedAt DESC)')
 
 
 def record_click(db, role, visitor_id, request_id, administrator=None, *, discord=None):
-    """Record one click atomically and retain attribution snapshots after settings change.
+    """Reuse the visitor's unexpired invitation for the selected role before creating another one.
 
-    Retrying a request from the same browser reuses the record. Each genuinely new
-    click uses another request ID. This does not assert Discord membership.
+    Keep the original role, attribution, and creation time when reusing a link.
+    Serialize lookup and generation across workers, including different request IDs.
     """
     with db.transaction(immediate=True) as tx:
         previous = tx.select('invitation_record', {'requestId': request_id})
@@ -60,6 +63,14 @@ def record_click(db, role, visitor_id, request_id, administrator=None, *, discor
                 raise InvitationError('請重新選擇邀請方式。', 409)
             if time.time() >= row['clickedAt'] + INVITE_MAX_AGE:
                 raise InvitationError('邀請已過期，請關閉視窗後重新取得邀請。', 410)
+            return {'id': row['id'], 'code': row['invitationCode']}
+        active = tx.query(
+            'SELECT * FROM invitation_record WHERE visitorId = ? AND role = ? AND clickedAt > ? '
+            'ORDER BY clickedAt DESC, rowid DESC LIMIT 1',
+            (visitor_id, role, time.time() - INVITE_MAX_AGE),
+        )
+        if active:
+            row = active[0]
             return {'id': row['id'], 'code': row['invitationCode']}
         if role not in INVITATIONS:
             raise InvitationError('請選擇有效的加入方式。')
