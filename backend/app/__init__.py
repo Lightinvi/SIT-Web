@@ -18,6 +18,17 @@ def create_app(config=None):
 
     Initialize a separate SQL manager and Discord cache service for this app.
     Configuration overrides are applied before extensions and routes are registered.
+    依環境設定與覆寫配置建立 Flask 應用程式，註冊服務、擴充套件與路由。
+
+    Args:
+        config: 覆寫預設應用設定的對照表；None 使用環境與預設設定。 預設為 None。
+
+    Returns:
+        Flask: 已完成配置與路由註冊的應用程式。
+
+    Example:
+        >>> result = create_app()
+        db、instance 與其餘範例變數須先依 Args 建立；範例 ID 涉及成員時須先有對應資料。
     """
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -71,7 +82,20 @@ def create_app(config=None):
 
     @app.get('/api/health')
     def health():
-        """Report HTTP liveness without accessing Discord or application data."""
+        """Report HTTP liveness without accessing Discord or application data.
+        回報 HTTP 服務存活狀態，不查詢資料庫或 Discord。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            Response | tuple[Response, int]: Flask 回應；拒絕請求時可能附帶 HTTP 狀態碼。
+
+        Example:
+            >>> client = app.test_client()
+            >>> response = client.get('/api/health')
+            受保護端點須先為測試用戶端建立有效登入；POST 的 payload 與 headers 須依端點準備。
+        """
         return {'status': 'ok'}
 
     return app

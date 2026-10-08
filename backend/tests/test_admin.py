@@ -19,7 +19,19 @@ class AdminTests(unittest.TestCase):
     """Use isolated databases and mock only Discord network operations."""
 
     def setUp(self):
-        """Seed two registered members and one authenticated web administrator."""
+        """Seed two registered members and one authenticated web administrator.
+        建立此測試案例所需的獨立環境與測試資料。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin.py"
+            對應測試或輔助流程：test_admin.AdminTests。
+        """
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.app = create_app({'TESTING': True, 'SECRET_KEY': 'test',
@@ -41,7 +53,19 @@ class AdminTests(unittest.TestCase):
         self.live = {'user': {'id': '111'}, 'roles': [ADMIN]}
 
     def test_authorization_and_csrf(self):
-        """Reject anonymous, missing-CSRF, revoked, and unverifiable administrator requests."""
+        """Reject anonymous, missing-CSRF, revoked, and unverifiable administrator requests.
+        驗證管理授權與 CSRF 驗證。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin.py"
+            對應測試或輔助流程：test_admin.AdminTests.test_authorization_and_csrf。
+        """
         self.assertEqual(self.app.test_client().post('/api/admin/sync').status_code, 401)
         with patch.object(self.service, '_request') as network:
             self.assertEqual(self.client.post('/api/admin/sync').status_code, 403)
@@ -52,7 +76,19 @@ class AdminTests(unittest.TestCase):
             self.assertEqual(self.client.get('/api/admin/status').status_code, 502)
 
     def test_sync_updates_cache_and_revokes_departed_sessions(self):
-        """Refresh actual cache files and stored roles without registering new guild users."""
+        """Refresh actual cache files and stored roles without registering new guild users.
+        驗證同步快取並撤销離開成員的登入。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin.py"
+            對應測試或輔助流程：test_admin.AdminTests.test_sync_updates_cache_and_revokes_departed_sessions。
+        """
         members = [self.live, {'user': {'id': '333'}, 'roles': [MEMBER]}]
         with patch.object(self.service, '_request', return_value=self.live), patch.object(
                 self.service, '_fetch', side_effect=[[{'id': ADMIN}], members]):
@@ -66,7 +102,19 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(len(list(self.service.cache_path.glob('*.json'))), 2)
 
     def test_upstream_failure_preserves_permissions(self):
-        """Never clear member roles when fetching the guild fails."""
+        """Never clear member roles when fetching the guild fails.
+        驗證上游失敗時保留原權限。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin.py"
+            對應測試或輔助流程：test_admin.AdminTests.test_upstream_failure_preserves_permissions。
+        """
         before = self.db.select('member')
         with patch.object(self.service, '_request', return_value=self.live), patch.object(
                 self.service, '_fetch', side_effect=DiscordError('unavailable')):
@@ -74,7 +122,19 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(self.db.select('member'), before)
 
     def test_session_reads_member_changes_immediately(self):
-        """Identity and permissions come from member, not per-session snapshots."""
+        """Identity and permissions come from member, not per-session snapshots.
+        驗證登入直接反映成員資料更新。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin.py"
+            對應測試或輔助流程：test_admin.AdminTests.test_session_reads_member_changes_immediately。
+        """
         self.db.update('member', {'displayName': 'Updated', 'roleIds': json.dumps([MEMBER])}, {'userId': '111'})
         user = self.client.get('/api/auth/session').json['user']
         self.assertEqual(user['name'], 'Updated')
@@ -82,7 +142,19 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(set(self.db.select('login_sessions')[0]), {'id', 'userId', 'expires'})
 
     def test_legacy_session_migration_is_idempotent(self):
-        """Retain valid linked sessions and newest role snapshot without overwriting profiles."""
+        """Retain valid linked sessions and newest role snapshot without overwriting profiles.
+        驗證舊登入結構遷移的冪等性。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin.py"
+            對應測試或輔助流程：test_admin.AdminTests.test_legacy_session_migration_is_idempotent。
+        """
         self.db.execute('DROP TABLE login_sessions')
         self.db.execute('CREATE TABLE login_sessions (id TEXT PRIMARY KEY, user TEXT NOT NULL, expires REAL NOT NULL)')
         self.db.update('member', {'roleIds': None}, {'userId': '111'})

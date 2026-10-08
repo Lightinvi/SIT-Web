@@ -20,7 +20,19 @@ class RecordIdTests(unittest.TestCase):
     """Start with colliding integer IDs in legacy tables and test a complete upgrade."""
 
     def setUp(self):
-        """Build the previous schema and seed an award, a transfer, and an invite click."""
+        """Build the previous schema and seed an award, a transfer, and an invite click.
+        建立此測試案例所需的獨立環境與測試資料。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+            對應測試或輔助流程：test_record_ids.RecordIdTests。
+        """
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         app = create_app({'TESTING': True, 'SECRET_KEY': 'uuid-test',
@@ -74,12 +86,36 @@ class RecordIdTests(unittest.TestCase):
             'star_shard', 'daily_spinner', 'star_shard_request', 'invitation_record')}
 
     def migrate(self):
-        """Run the same locked migration used by every record-writing feature."""
+        """Run the same locked migration used by every record-writing feature.
+        在即時交易中執行舊業務編號的 UUID 遷移。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+            對應測試或輔助流程：test_record_ids.RecordIdTests。
+        """
         with self.db.transaction(immediate=True) as tx:
             migrate_record_ids(tx)
 
     def test_migration_preserves_all_references_and_history(self):
-        """Convert colliding IDs to unique UUIDs while retaining balances and external IDs."""
+        """Convert colliding IDs to unique UUIDs while retaining balances and external IDs.
+        驗證UUID 遷移保留所有參照與歷史。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+            對應測試或輔助流程：test_record_ids.RecordIdTests.test_migration_preserves_all_references_and_history。
+        """
         self.migrate()
         ledger = self.db.select('star_shard', order_by='sequence')
         spinner = self.db.select('daily_spinner')[0]
@@ -106,10 +142,39 @@ class RecordIdTests(unittest.TestCase):
         self.assertEqual(self.db.select('star_shard', order_by='sequence'), ledger)
 
     def test_migration_failure_rolls_back_original_schema_and_data(self):
-        """Rollback all tables and original triggers if copying any related receipt fails."""
+        """Rollback all tables and original triggers if copying any related receipt fails.
+        驗證遷移失敗恢復原結構與資料。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+            對應測試或輔助流程：test_record_ids.RecordIdTests.test_migration_failure_rolls_back_original_schema_and_data。
+        """
         insert = SQLSession.insert
         def fail_receipt(tx, table, values):
-            """Simulate a failure after the parent tables have been rebuilt."""
+            """Simulate a failure after the parent tables have been rebuilt.
+            在測試憑證新增時注入失敗，其餘新增沿用原方法。
+
+            Args:
+                tx: 目前交易的 SQLSession；由呼叫者管理提交與回滾。
+                table: 資料表名稱。
+                values: 欄位名稱與資料值的對照表。
+
+            Returns:
+                object: 被包裝操作的測試結果，供呼叫案例斷言。
+
+            Exceptions:
+                sqlite3.OperationalError: 操作失敗所產生的例外。 若由下列處理流程捕捉，則依其轉換規則處理。
+
+            Example:
+                在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+                對應測試或輔助流程：test_record_ids.RecordIdTests.test_migration_failure_rolls_back_original_schema_and_data。
+            """
             if table == 'star_shard_request':
                 raise sqlite3.OperationalError('simulated failure')
             return insert(tx, table, values)
@@ -123,7 +188,19 @@ class RecordIdTests(unittest.TestCase):
         self.migrate()
 
     def test_migrated_constraints_and_foreign_keys_remain_active(self):
-        """Preserve append-only guards, references, and once-per-day reward uniqueness."""
+        """Preserve append-only guards, references, and once-per-day reward uniqueness.
+        驗證遷移後約束及外鍵持續有效。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+            對應測試或輔助流程：test_record_ids.RecordIdTests.test_migrated_constraints_and_foreign_keys_remain_active。
+        """
         self.migrate()
         ledger = self.db.select('star_shard')[0]
         with self.assertRaises(sqlite3.IntegrityError):
@@ -138,9 +215,33 @@ class RecordIdTests(unittest.TestCase):
             self.db.insert('star_shard_request', {**receipt, 'requestId': str(uuid4()), 'debitId': new_record_id()})
 
     def test_concurrent_migrations_do_not_regenerate_ids(self):
-        """Multiple workers observe the same final UUIDs after a single migration."""
+        """Multiple workers observe the same final UUIDs after a single migration.
+        驗證並行遷移不重複產生識別碼。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+            對應測試或輔助流程：test_record_ids.RecordIdTests.test_concurrent_migrations_do_not_regenerate_ids。
+        """
         def migrate_and_read(_):
-            """Enter the migration from a separate connection and read stable IDs."""
+            """Enter the migration from a separate connection and read stable IDs.
+            執行並行 UUID 遷移並讀取遷移結果。
+
+            Args:
+                _: 並行工作序號；函式不使用此值。
+
+            Returns:
+                object: 被包裝操作的測試結果，供呼叫案例斷言。
+
+            Example:
+                在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+                對應測試或輔助流程：test_record_ids.RecordIdTests.test_concurrent_migrations_do_not_regenerate_ids。
+            """
             self.migrate()
             return self.db.select('star_shard', order_by='sequence')
         with ThreadPoolExecutor(max_workers=4) as executor:
@@ -148,7 +249,19 @@ class RecordIdTests(unittest.TestCase):
         self.assertTrue(all(rows == results[0] for rows in results))
 
     def test_balance_order_is_independent_of_uuid_and_clock(self):
-        """Use commit sequence even when UUIDs and wall-clock timestamps decrease."""
+        """Use commit sequence even when UUIDs and wall-clock timestamps decrease.
+        驗證餘額順序不受 UUID 與時鐘影響。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+            對應測試或輔助流程：test_record_ids.RecordIdTests.test_balance_order_is_independent_of_uuid_and_clock。
+        """
         self.migrate()
         with self.db.transaction(immediate=True) as tx:
             ensure_schema(tx)
@@ -159,7 +272,19 @@ class RecordIdTests(unittest.TestCase):
             self.assertEqual(balance(tx, '111'), 10)
 
     def test_unknown_foreign_references_fail_without_data_loss(self):
-        """Require an explicit migration for future dependent tables rather than guessing."""
+        """Require an explicit migration for future dependent tables rather than guessing.
+        驗證未知外鍵阻止遷移且不遺失資料。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_record_ids.py"
+            對應測試或輔助流程：test_record_ids.RecordIdTests.test_unknown_foreign_references_fail_without_data_loss。
+        """
         self.db.execute('CREATE TABLE future_relation (recordId INTEGER REFERENCES star_shard(id))')
         with self.assertRaises(sqlite3.IntegrityError):
             self.migrate()

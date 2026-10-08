@@ -11,8 +11,6 @@ from app.api.auth import current_user, database
 from app.models.member import ensure_member_schema
 from app.services.discord import DiscordError
 from app.services.roles import highest_role
-from app.services.admin_reader import table_page, log_page
-from app.models.shard_grant import grant
 from app.models.star_shard import ShardError
 
 admin_bp = Blueprint('admin', __name__)
@@ -20,14 +18,43 @@ admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.after_request
 def private_response(response):
-    """Prevent browser and proxy caches from retaining administration responses."""
+    """Prevent browser and proxy caches from retaining administration responses.
+    為回應加上禁止快取標頭，以保護私人資料。
+
+    Args:
+        response: Flask 即將送出的回應物件。
+
+    Returns:
+        Response: 加上回應標頭後的原回應物件。
+
+    Example:
+        由 Flask 在請求鉤子或錯誤處理流程中呼叫；直接呼叫須準備對應 request context。
+        >>> with app.test_request_context():
+        ...     result = private_response(response=response)
+    """
     response.headers['Cache-Control'] = 'no-store'
     return response
 
 
 @admin_bp.before_request
 def authorize():
-    """Require a session, CSRF for writes, and a live web-admin Discord role."""
+    """Require a session, CSRF for writes, and a live web-admin Discord role.
+    檢查登入、寫入 CSRF 與即時 Discord 網頁管理員身份。
+
+    Args:
+        None: 無需傳入參數。
+
+    Returns:
+        None | tuple[Response, int]: 驗證通過時繼續請求；失敗時回傳錯誤與狀態碼。
+
+    Exceptions:
+        DiscordError: 已在函式內捕捉，轉成回應或替代結果。
+
+    Example:
+        由 Flask 在請求鉤子或錯誤處理流程中呼叫；直接呼叫須準備對應 request context。
+        >>> with app.test_request_context():
+        ...     result = authorize()
+    """
     user = current_user()
     if user is None:
         return jsonify(error='請先登入帳號。'), 401
@@ -50,7 +77,20 @@ def authorize():
 
 @admin_bp.get('/shards/members')
 def grant_members():
-    """Search registered recipients, including the administrator's own member record."""
+    """Search registered recipients, including the administrator's own member record.
+    搜尋最多五十位已登記的發放對象，包含管理員本人。
+
+    Args:
+        None: 無需傳入參數。
+
+    Returns:
+        Response | tuple[Response, int]: Flask 回應；拒絕請求時可能附帶 HTTP 狀態碼。
+
+    Example:
+        >>> client = app.test_client()
+        >>> response = client.get('/api/admin/shards/members')
+        受保護端點須先為測試用戶端建立有效登入；POST 的 payload 與 headers 須依端點準備。
+    """
     query = request.args.get('q', '').strip()[:100]
     with current_app.extensions['sql'].transaction() as tx:
         rows = tx.query('''SELECT userId, username, displayName FROM member
@@ -62,7 +102,26 @@ def grant_members():
 
 @admin_bp.post('/shards/grant')
 def grant_shards():
-    """Credit only after live administrator and CSRF checks; clients cannot choose the ledger type."""
+    """Credit only after live administrator and CSRF checks; clients cannot choose the ledger type.
+    驗證操作 UUID 後執行系統發放，回傳可追蹤管理員的憑證。
+
+    Args:
+        None: 無需傳入參數。
+
+    Returns:
+        Response | tuple[Response, int]: Flask 回應；拒絕請求時可能附帶 HTTP 狀態碼。
+
+    Exceptions:
+        ValueError: 名稱、格式、數值或參數組合未通過驗證。 若由下列處理流程捕捉，則依其轉換規則處理。
+        ValueError, TypeError, AttributeError: 已在函式內捕捉，轉成回應或替代結果。
+        ShardError: 已在函式內捕捉，轉成回應或替代結果。
+        sqlite3.Error: 已在函式內捕捉，轉成回應或替代結果。
+
+    Example:
+        >>> client = app.test_client()
+        >>> response = client.post('/api/admin/shards/grant', json=payload, headers=headers)
+        受保護端點須先為測試用戶端建立有效登入；POST 的 payload 與 headers 須依端點準備。
+    """
     payload = request.get_json(silent=True)
     try:
         if not isinstance(payload, dict):
@@ -71,7 +130,7 @@ def grant_shards():
     except (ValueError, TypeError, AttributeError):
         return jsonify(error='無效的操作識別碼。'), 400
     try:
-        receipt = grant(current_app.extensions['sql'], g.admin_user_id,
+        receipt = current_app.extensions['services'].grants.grant(g.admin_user_id,
                         payload.get('recipientId'), payload.get('amount'), request_id)
     except ShardError as error:
         return jsonify(error=str(error)), 400
@@ -84,21 +143,63 @@ def grant_shards():
 
 @admin_bp.get('/status')
 def status():
-    """Confirm live authorization without exposing cached member information."""
+    """Confirm live authorization without exposing cached member information.
+    確認網頁管理員已通過即時驗證。
+
+    Args:
+        None: 無需傳入參數。
+
+    Returns:
+        Response | tuple[Response, int]: Flask 回應；拒絕請求時可能附帶 HTTP 狀態碼。
+
+    Example:
+        >>> client = app.test_client()
+        >>> response = client.get('/api/admin/status')
+        受保護端點須先為測試用戶端建立有效登入；POST 的 payload 與 headers 須依端點準備。
+    """
     return jsonify(authorized=True)
 
 
 @admin_bp.get('/database')
 def tables():
-    """List existing user tables after live web-administrator authorization."""
+    """List existing user tables after live web-administrator authorization.
+    在網頁管理員驗證後回傳資料表名稱清單。
+
+    Args:
+        None: 無需傳入參數。
+
+    Returns:
+        Response | tuple[Response, int]: Flask 回應；拒絕請求時可能附帶 HTTP 狀態碼。
+
+    Example:
+        >>> client = app.test_client()
+        >>> response = client.get('/api/admin/database')
+        受保護端點須先為測試用戶端建立有效登入；POST 的 payload 與 headers 須依端點準備。
+    """
     return jsonify(tables=current_app.extensions['sql'].list_tables())
 
 
 @admin_bp.get('/database/<table>')
 def table_rows(table):
-    """Expose a read-only page with validated sorting and a fixed 100-row limit."""
+    """Expose a read-only page with validated sorting and a fixed 100-row limit.
+    依驗證過的搜尋、排序及分頁參數回傳資料表內容。
+
+    Args:
+        table: 資料表名稱。
+
+    Returns:
+        Response | tuple[Response, int]: Flask 回應；拒絕請求時可能附帶 HTTP 狀態碼。
+
+    Exceptions:
+        ValueError, OverflowError: 已在函式內捕捉，轉成回應或替代結果。
+
+    Example:
+        >>> client = app.test_client()
+        >>> response = client.get('/api/admin/database/member')
+        受保護端點須先為測試用戶端建立有效登入；POST 的 payload 與 headers 須依端點準備。
+    """
     try:
-        result = table_page(current_app.extensions['sql'], table, request.args.get('sort'),
+        result = current_app.extensions['services'].database.table_page(table, request.args.get('sort'),
                             request.args.get('direction', 'asc'), int(request.args.get('offset', '0')),
                             request.args.get('q', ''), request.args.get('column'))
         return jsonify(result)
@@ -108,10 +209,27 @@ def table_rows(table):
 
 @admin_bp.get('/log')
 def logs():
-    """Return application JSON logs without exposing file-system paths."""
+    """Return application JSON logs without exposing file-system paths.
+    回傳日誌快照頁面，將無效游標與已輪替的快照轉成對應錯誤。
+
+    Args:
+        None: 無需傳入參數。
+
+    Returns:
+        Response | tuple[Response, int]: Flask 回應；拒絕請求時可能附帶 HTTP 狀態碼。
+
+    Exceptions:
+        ValueError: 已在函式內捕捉，轉成回應或替代結果。
+        LookupError: 已在函式內捕捉，轉成回應或替代結果。
+        OSError: 已在函式內捕捉，轉成回應或替代結果。
+
+    Example:
+        >>> client = app.test_client()
+        >>> response = client.get('/api/admin/log')
+        受保護端點須先為測試用戶端建立有效登入；POST 的 payload 與 headers 須依端點準備。
+    """
     try:
-        return jsonify(log_page(current_app.config['LOG_DIRECTORY'], current_app.secret_key,
-                                request.args.get('cursor')))
+        return jsonify(current_app.extensions['services'].logs.log_page(request.args.get('cursor')))
     except ValueError:
         return jsonify(error='分頁參數無效，請重新整理。'), 400
     except LookupError:
@@ -126,6 +244,22 @@ def sync():
 
     Never register new website members from the guild list. Retain historical
     profiles for departed members, clearing only roles and their login sessions.
+    更新 Discord 快取與既有成員權限，撤銷失去資格的登入，保留歷史成員資料。
+
+    Args:
+        None: 無需傳入參數。
+
+    Returns:
+        Response | tuple[Response, int]: Flask 回應；拒絕請求時可能附帶 HTTP 狀態碼。
+
+    Exceptions:
+        DiscordError: Discord 存取、回應格式或快取服務無法完成操作。 若由下列處理流程捕捉，則依其轉換規則處理。
+        DiscordError: 已在函式內捕捉，轉成回應或替代結果。
+
+    Example:
+        >>> client = app.test_client()
+        >>> response = client.post('/api/admin/sync', json=payload, headers=headers)
+        受保護端點須先為測試用戶端建立有效登入；POST 的 payload 與 headers 須依端點準備。
     """
     service = current_app.extensions['discord']
     try:

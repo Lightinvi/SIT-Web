@@ -16,7 +16,19 @@ class BlackjackTests(unittest.TestCase):
     """Exercise real SQLite transactions and HTTP sessions with deterministic shoes."""
 
     def setUp(self):
-        """Create two funded players without making network requests."""
+        """Create two funded players without making network requests.
+        建立此測試案例所需的獨立環境與測試資料。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests。
+        """
         test_admin.AdminTests.setUp(self)
         with self.db.transaction(immediate=True) as tx:
             ensure_schema(tx)
@@ -24,11 +36,36 @@ class BlackjackTests(unittest.TestCase):
                 append_entry(tx, user_id, 1000, 'test', 'seed', 'test')
 
     def shoe(self, cards):
-        """Install a controlled shoe in this test's private database."""
+        """Install a controlled shoe in this test's private database.
+        將測試牌靴替換為指定牌面，供可重現牌局使用。
+
+        Args:
+            cards: 測試牌面字串清單，例如 ["AC", "9C", "KH", "8D"]。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests。
+        """
         self.db.insert('blackjack_shoe', {'id': str(uuid4()), 'cards': json.dumps(cards + ['2C'] * (260 - len(cards))), 'nextIndex': 0, 'createdAt': time.time()})
 
     def command(self, action, **overrides):
-        """Submit the latest own round version unless the test overrides it."""
+        """Submit the latest own round version unless the test overrides it.
+        提交牌局測試請求，預設附上本人最新牌局 ID 與版本。
+
+        Args:
+            action: 要執行的操作名稱。
+            overrides: 覆寫預設測試請求內容的關鍵字參數。
+
+        Returns:
+            TestResponse: 牌局操作的測試 HTTP 回應。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests。
+        """
         current = self.client.get('/api/blackjack').json['round']
         payload = {'action': action, 'requestId': str(uuid4())}
         if action == 'start':
@@ -38,7 +75,19 @@ class BlackjackTests(unittest.TestCase):
         return self.client.post('/api/blackjack', json={**payload, **overrides}, headers={'X-CSRF-Token': 'test'})
 
     def test_natural_payout_and_hidden_information(self):
-        """Natural pays 3:2; active responses never expose the hole card or shoe."""
+        """Natural pays 3:2; active responses never expose the hole card or shoe.
+        驗證原始 Blackjack 賠付與暗牌資訊隱藏。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_natural_payout_and_hidden_information。
+        """
         self.shoe(['AC', '9C', 'KH', '8D'])
         result = self.command('start').json
         self.assertEqual(result['balance'], 1030)
@@ -51,7 +100,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertNotIn('shoe', state)
 
     def test_insurance_blackjack_and_decline(self):
-        """Insurance returns three times its cost, independent of main-hand losses."""
+        """Insurance returns three times its cost, independent of main-hand losses.
+        驗證莊家 Blackjack 的保險賠付與拒絕保險。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_insurance_blackjack_and_decline。
+        """
         self.shoe(['10C', 'AC', '9H', 'KD'])
         start = self.command('start').json
         self.assertEqual(start['round']['phase'], 'insurance')
@@ -66,7 +127,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertEqual(self.command('decline').json['balance'], 980)
 
     def test_soft17_and_losing_insurance(self):
-        """Dealer stands on soft 17 and losing insurance is not refunded."""
+        """Dealer stands on soft 17 and losing insurance is not refunded.
+        驗證莊家 soft 17 停牌及失敗保險。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_soft17_and_losing_insurance。
+        """
         self.shoe(['10C', 'AC', '9H', '6D', 'KC'])
         self.command('start')
         self.command('insurance')
@@ -76,7 +149,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertEqual(len(result['round']['dealer']), 2)
 
     def test_ten_up_peek_and_both_naturals(self):
-        """Ten-up dealer blackjack resolves before any extra player wagers."""
+        """Ten-up dealer blackjack resolves before any extra player wagers.
+        驗證莊家十點明牌偷看與双方 Blackjack。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_ten_up_peek_and_both_naturals。
+        """
         self.shoe(['8C', 'KC', '8H', 'AD'])
         result = self.command('start').json
         self.assertEqual(result['round']['phase'], 'settled')
@@ -88,7 +173,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertEqual(result['round']['hands'][0]['result'], 'push')
 
     def test_double_one_card_and_dealer_bust(self):
-        """Doubling debits the extra stake and stops after exactly one card."""
+        """Doubling debits the extra stake and stops after exactly one card.
+        驗證加倍僅補一張及莊家爆牌賠付。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_double_one_card_and_dealer_bust。
+        """
         self.shoe(['5C', '6C', '6H', 'KD', '10H', 'QC'])
         self.command('start')
         result = self.command('double').json
@@ -98,7 +195,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertEqual(result['round']['payout'], 80)
 
     def test_split_aces_stop_and_never_pay_natural(self):
-        """Split aces receive one card each; their 21 pays ordinary 1:1."""
+        """Split aces receive one card each; their 21 pays ordinary 1:1.
+        驗證分 A 補一張停牌且不視為原始 Blackjack。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_split_aces_stop_and_never_pay_natural。
+        """
         self.shoe(['AC', '9C', 'AH', '8D', 'KC', 'AD'])
         self.command('start')
         result = self.command('split').json
@@ -109,7 +218,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertEqual(result['balance'], 1000)
 
     def test_split_limit_and_double_after_split(self):
-        """Re-splitting is bounded at four hands, and split hands may double."""
+        """Re-splitting is bounded at four hands, and split hands may double.
+        驗證分牌上限及分牌後加倍。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_split_limit_and_double_after_split。
+        """
         self.shoe(['8C', '9C', '8H', '8D', '8C', '8D', '8H', '8S', '8C', '8H', '2S'])
         self.command('start')
         for _ in range(3):
@@ -123,7 +244,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertEqual(result['round']['activeHand'], 1)
 
     def test_player_bust_loses_without_drawing_dealer(self):
-        """A busted player cannot win even if dealer might bust later."""
+        """A busted player cannot win even if dealer might bust later.
+        驗證玩家爆牌後不額外發莊家牌。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_player_bust_loses_without_drawing_dealer。
+        """
         self.shoe(['KC', '6C', '9H', 'KD', 'QC'])
         self.command('start')
         result = self.command('hit').json
@@ -132,7 +265,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertEqual(result['round']['hands'][0]['result'], 'bust')
 
     def test_balance_validation_csrf_and_ownership(self):
-        """Reject invalid stakes, anonymous requests, CSRF failures, and another round."""
+        """Reject invalid stakes, anonymous requests, CSRF failures, and another round.
+        驗證牌局餘額、CSRF 與所有權驗證。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_balance_validation_csrf_and_ownership。
+        """
         self.assertEqual(self.app.test_client().get('/api/blackjack').status_code, 401)
         self.assertEqual(self.client.post('/api/blackjack', json={}).status_code, 403)
         for amount in (0, -2, 3, 1002, True, 2.5, '20'):
@@ -147,7 +292,19 @@ class BlackjackTests(unittest.TestCase):
             play(self.db, '222', str(uuid4()), 'stand', round_id=current['round']['id'], version=1)
 
     def test_retries_and_stale_commands_do_not_draw_or_charge_twice(self):
-        """Same-ID concurrent starts commit once; stale commands never consume cards."""
+        """Same-ID concurrent starts commit once; stale commands never consume cards.
+        驗證重試與過期操作不重複發牌或扣款。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_retries_and_stale_commands_do_not_draw_or_charge_twice。
+        """
         self.shoe(['5C', '9C', '6H', '8D', '2C', '3C'])
         request_id = str(uuid4())
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -164,7 +321,19 @@ class BlackjackTests(unittest.TestCase):
             play(self.db, '111', request_id, 'start', bet=40)
 
     def test_shared_shoe_has_260_unique_positions_and_five_each_face(self):
-        """All five decks are consumed before the next shared shoe is created."""
+        """All five decks are consumed before the next shared shoe is created.
+        驗證共享牌靴具二百六十個唯一牌位及每種牌面五張。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_shared_shoe_has_260_unique_positions_and_five_each_face。
+        """
         with self.db.transaction(immediate=True) as tx:
             cards = [draw(tx) for _ in range(260)]
             self.assertEqual(len(tx.select('blackjack_shoe')), 1)
@@ -176,7 +345,19 @@ class BlackjackTests(unittest.TestCase):
         self.assertNotIn(next_card['id'], {card['id'] for card in cards})
 
     def test_two_players_share_positions_and_failure_rolls_back(self):
-        """Concurrent players consume one global sequence and invalid actions leave it intact."""
+        """Concurrent players consume one global sequence and invalid actions leave it intact.
+        驗證兩位玩家共享牌位且失敗回滾。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_two_players_share_positions_and_failure_rolls_back。
+        """
         self.shoe(['2C'] * 20)
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda user: play(self.db, user, str(uuid4()), 'start', bet=20), ['111', '222']))
@@ -189,11 +370,23 @@ class BlackjackTests(unittest.TestCase):
         self.assertEqual(self.db.select('star_shard'), before)
 
     def test_settlement_retry_and_failed_draw_are_atomic(self):
-        """A failed draw rolls back its debit and a replayed settlement never pays twice."""
+        """A failed draw rolls back its debit and a replayed settlement never pays twice.
+        驗證結算重試與發牌失敗的原子性。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_blackjack.py"
+            對應測試或輔助流程：test_blackjack.BlackjackTests.test_settlement_retry_and_failed_draw_are_atomic。
+        """
         self.shoe(['10C', '9C', '9H', '8D'])
         current = self.command('start').json['round']
         before = self.db.select('star_shard')
-        with patch('app.models.blackjack.draw', side_effect=RuntimeError('test draw failure')):
+        with patch('app.models.blackjack.BlackjackShoe.draw', side_effect=RuntimeError('test draw failure')):
             with self.assertRaises(RuntimeError):
                 play(self.db, '111', str(uuid4()), 'double', round_id=current['id'], version=1)
         self.assertEqual(self.db.select('star_shard'), before)

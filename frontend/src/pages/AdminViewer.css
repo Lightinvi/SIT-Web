@@ -7,6 +7,9 @@
 .admin-search { display: flex; align-items: center; gap: 8px; border: 1px solid #a8b2bd; padding: 8px; }
 .admin-search input { width: 100%; min-width: 0; border: 0; font: inherit; background: transparent; color: inherit; }
 .admin-table-list { display: flex; flex-direction: column; align-items: stretch; gap: 0; margin-top: 12px; }
+.admin-database-layout .admin-table-list { max-height: min(640px, 65dvh); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.admin-database-layout .admin-table-scroll { max-height: min(640px, 65dvh); overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.admin-database-layout .admin-table th { position: sticky; top: 0; z-index: 1; box-shadow: 0 1px 0 #d7dce2; }
 .admin-table-list button { text-align: left; padding: 12px; border: 0; border-bottom: 1px solid #d7dce2; background: transparent; color: inherit; font: inherit; overflow-wrap: anywhere; cursor: pointer; }
 .admin-table-list button[aria-current] { background: #e4f1ed; color: #185846; font-weight: 600; }
 .admin-records { min-width: 0; }

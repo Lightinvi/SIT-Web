@@ -14,14 +14,38 @@ class AdminReaderTests(unittest.TestCase):
     setUp = test_admin.AdminTests.setUp
 
     def test_all_read_routes_require_live_web_admin(self):
-        """Reject anonymous users and live demotions even with a stored admin role."""
+        """Reject anonymous users and live demotions even with a stored admin role.
+        驗證所有管理查閱路由要求即時網頁管理員身份。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin_reader.py"
+            對應測試或輔助流程：test_admin_reader.AdminReaderTests.test_all_read_routes_require_live_web_admin。
+        """
         for path in ('/api/admin/database', '/api/admin/database/member', '/api/admin/log'):
             self.assertEqual(self.app.test_client().get(path).status_code, 401)
             with patch.object(self.service, '_request', return_value={'user': {'id': '111'}, 'roles': [test_admin.MEMBER]}):
                 self.assertEqual(self.client.get(path).status_code, 403)
 
     def test_database_paging_sorting_and_injection(self):
-        """Return exactly 100 rows per page and reject untrusted identifiers/directions."""
+        """Return exactly 100 rows per page and reject untrusted identifiers/directions.
+        驗證管理資料庫分頁、排序及注入防護。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin_reader.py"
+            對應測試或輔助流程：test_admin_reader.AdminReaderTests.test_database_paging_sorting_and_injection。
+        """
         self.db.execute('CREATE TABLE sample (id INTEGER PRIMARY KEY, value TEXT)')
         with self.db.transaction() as tx:
             for number in range(205):
@@ -42,7 +66,19 @@ class AdminReaderTests(unittest.TestCase):
         self.assertTrue(self.db.table_exists('sample'))
 
     def test_log_snapshot_survives_append_and_rotation(self):
-        """A cursor continues the original snapshot, skipping malformed JSON lines."""
+        """A cursor continues the original snapshot, skipping malformed JSON lines.
+        驗證日誌追加與輪替後仍可讀取保留的快照。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin_reader.py"
+            對應測試或輔助流程：test_admin_reader.AdminReaderTests.test_log_snapshot_survives_append_and_rotation。
+        """
         directory = Path(self.temp.name) / 'logs'
         directory.mkdir()
         path = directory / 'app.log'
@@ -66,7 +102,19 @@ class AdminReaderTests(unittest.TestCase):
             log_page(directory, 'test', 'tampered')
 
     def test_content_search_is_literal_and_precedes_pagination(self):
-        """Search all stored rows and columns, keeping sorting and literal SQL characters."""
+        """Search all stored rows and columns, keeping sorting and literal SQL characters.
+        驗證欄位內容搜尋採字面比對且先於分頁。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin_reader.py"
+            對應測試或輔助流程：test_admin_reader.AdminReaderTests.test_content_search_is_literal_and_precedes_pagination。
+        """
         self.db.execute('CREATE TABLE searchable (id INTEGER PRIMARY KEY, description TEXT, note TEXT)')
         with self.db.transaction() as tx:
             for number in range(205):
@@ -91,7 +139,19 @@ class AdminReaderTests(unittest.TestCase):
                 self.assertEqual(self.client.get(path, query_string={'q': '204', 'column': column}).status_code, 400)
 
     def test_logs_empty_and_api_fields(self):
-        """Missing logs are empty and only the expected JSON fields are exposed."""
+        """Missing logs are empty and only the expected JSON fields are exposed.
+        驗證空日誌與 API 欄位格式。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_admin_reader.py"
+            對應測試或輔助流程：test_admin_reader.AdminReaderTests.test_logs_empty_and_api_fields。
+        """
         directory = Path(self.temp.name) / 'logs'
         self.app.config['LOG_DIRECTORY'] = str(directory)
         with patch.object(self.service, '_request', return_value=self.live):

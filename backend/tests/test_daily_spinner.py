@@ -24,10 +24,34 @@ class DailySpinnerTests(unittest.TestCase):
     """Use temporary SQLite storage and real login cookies without external services."""
 
     def setUp(self):
-        """Prepare two members and an authenticated test browser."""
+        """Prepare two members and an authenticated test browser.
+        建立此測試案例所需的獨立環境與測試資料。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests。
+        """
         original_timezone = os.environ.get('TZ')
         def restore_timezone():
-            """Restore the process timezone after each isolated test."""
+            """Restore the process timezone after each isolated test.
+            還原測試前的主機時區設定。
+
+            Args:
+                None: 無需傳入參數；實例方法使用目前物件狀態。
+
+            Returns:
+                None: 僅更新狀態或執行副作用，不回傳資料。
+
+            Example:
+                在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+                對應測試或輔助流程：test_daily_spinner.DailySpinnerTests。
+            """
             if original_timezone is None:
                 os.environ.pop('TZ', None)
             else:
@@ -55,12 +79,36 @@ class DailySpinnerTests(unittest.TestCase):
         self.before_midnight = datetime(2026, 9, 29, 23, 59, 59, tzinfo=timezone.utc).timestamp()
 
     def draw(self, **extra):
-        """Request a draw with valid CSRF and optional untrusted JSON fields."""
+        """Request a draw with valid CSRF and optional untrusted JSON fields.
+        提交每日轉盤測試請求，允許覆寫操作內容。
+
+        Args:
+            extra: 額外的測試請求欄位。
+
+        Returns:
+            TestResponse: 每日轉盤操作的測試 HTTP 回應。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests。
+        """
         return self.client.post('/api/daily-spinner/spin', headers={'X-CSRF-Token': 'token'},
             json={'requestId': str(uuid4()), **extra})
 
     def test_exact_published_probability_mapping(self):
-        """Enumerate all random outcomes to prove each multiplier's exact probability."""
+        """Enumerate all random outcomes to prove each multiplier's exact probability.
+        驗證轉盤隨機結果符合公布機率。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_exact_published_probability_mapping。
+        """
         outcomes = Counter()
         for roll in range(100):
             with patch('app.models.daily_spinner.secrets.randbelow', return_value=roll) as random:
@@ -70,7 +118,19 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual([prize['reward'] for prize in PRIZES], [5, 10, 20, 25, 50])
 
     def test_public_odds_and_authenticated_status_are_read_only(self):
-        """Publish odds anonymously without awarding shards or exposing other users."""
+        """Publish odds anonymously without awarding shards or exposing other users.
+        驗證公開機率與登入狀態查詢不異動資料。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_public_odds_and_authenticated_status_are_read_only。
+        """
         public = self.app.test_client().get('/api/daily-spinner')
         self.assertFalse(public.json['authenticated'])
         self.assertFalse(public.json['canSpin'])
@@ -84,7 +144,19 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual(self.db.select('star_shard'), [])
 
     def test_draw_credits_ledger_with_receipt_source(self):
-        """Ignore forged reward/user fields and use the committed daily receipt as source."""
+        """Ignore forged reward/user fields and use the committed daily receipt as source.
+        驗證轉盤派款帳本引用當次憑證。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_draw_credits_ledger_with_receipt_source。
+        """
         with patch('app.models.daily_spinner.secrets.randbelow', return_value=99):
             response = self.draw(userId='222', reward=99999, multiplier=100)
         self.assertEqual(response.status_code, 200)
@@ -97,7 +169,19 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual(balance(self.db, '222'), 0)
 
     def test_duplicate_requests_reuse_daily_result(self):
-        """Different request IDs on the same day still award exactly once."""
+        """Different request IDs on the same day still award exactly once.
+        驗證重複請求沿用當日結果。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_duplicate_requests_reuse_daily_result。
+        """
         first = self.draw().json
         second = self.draw().json
         self.assertEqual(first['result'], second['result'])
@@ -106,7 +190,19 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual(len(self.db.select('star_shard')), 1)
 
     def test_system_midnight_and_cross_day_retries(self):
-        """Refresh at host midnight and never turn a prior-day retry into a second draw."""
+        """Refresh at host midnight and never turn a prior-day retry into a second draw.
+        驗證系統午夜刷新及跨日重試。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_system_midnight_and_cross_day_retries。
+        """
         day, reset = day_window(self.before_midnight)
         self.assertEqual(day, '2026-09-29')
         self.assertEqual(reset, self.before_midnight + 1)
@@ -122,7 +218,19 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual(len(self.db.select('star_shard')), 2)
 
     def test_host_timezone_changes_calendar_boundary(self):
-        """Respect UTC, Taiwan, and Oregon host settings instead of a fixed offset."""
+        """Respect UTC, Taiwan, and Oregon host settings instead of a fixed offset.
+        驗證主機時區決定每日邊界。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_host_timezone_changes_calendar_boundary。
+        """
         instant = datetime(2026, 9, 29, 20, tzinfo=timezone.utc).timestamp()
         cases = [('UTC', '2026-09-29', '2026-09-30T00:00:00+00:00'),
                  ('Asia/Taipei', '2026-09-30', '2026-09-30T16:00:00+00:00'),
@@ -136,7 +244,19 @@ class DailySpinnerTests(unittest.TestCase):
                 self.assertEqual(reset, datetime.fromisoformat(expected_reset).timestamp())
 
     def test_oregon_dst_days_are_23_or_25_hours(self):
-        """Resolve midnight using host DST rules instead of adding 86400 seconds."""
+        """Resolve midnight using host DST rules instead of adding 86400 seconds.
+        驗證奧勒岡夏令時間切換日為二十三或二十五小時。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_oregon_dst_days_are_23_or_25_hours。
+        """
         os.environ['TZ'] = 'America/Los_Angeles'
         time.tzset()
         for start, hours in [('2026-03-08T08:00:00+00:00', 23), ('2026-11-01T07:00:00+00:00', 25)]:
@@ -145,7 +265,19 @@ class DailySpinnerTests(unittest.TestCase):
             self.assertEqual(reset - timestamp, hours * 3600)
 
     def test_parallel_draws_award_once(self):
-        """Serialize simultaneous tabs so only one random result and credit is written."""
+        """Serialize simultaneous tabs so only one random result and credit is written.
+        驗證並行抽獎僅派款一次。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_parallel_draws_award_once。
+        """
         with ThreadPoolExecutor(max_workers=6) as executor:
             results = list(executor.map(lambda _: spin(self.db, '111', str(uuid4()), now=self.before_midnight), range(6)))
         self.assertEqual(sum(result['awarded'] for result in results), 1)
@@ -154,10 +286,39 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual(len(self.db.select('star_shard')), 1)
 
     def test_failed_credit_rolls_back_daily_eligibility(self):
-        """A failed ledger insert cannot consume the user's daily turn."""
+        """A failed ledger insert cannot consume the user's daily turn.
+        驗證入帳失敗時恢復當日轉盤資格。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_failed_credit_rolls_back_daily_eligibility。
+        """
         insert = SQLSession.insert
         def fail_credit(tx, table, values):
-            """Simulate disk failure only while appending the reward entry."""
+            """Simulate disk failure only while appending the reward entry.
+            在測試指定的入帳步驟注入失敗，其餘新增沿用原方法。
+
+            Args:
+                tx: 目前交易的 SQLSession；由呼叫者管理提交與回滾。
+                table: 資料表名稱。
+                values: 欄位名稱與資料值的對照表。
+
+            Returns:
+                object: 被包裝操作的測試結果，供呼叫案例斷言。
+
+            Exceptions:
+                sqlite3.OperationalError: 操作失敗所產生的例外。 若由下列處理流程捕捉，則依其轉換規則處理。
+
+            Example:
+                在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+                對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_failed_credit_rolls_back_daily_eligibility。
+            """
             if table == 'star_shard':
                 raise sqlite3.OperationalError('disk failure')
             return insert(tx, table, values)
@@ -169,7 +330,19 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual(self.draw().status_code, 200)
 
     def test_overflow_rolls_back_spin(self):
-        """Do not consume a turn when the ledger rejects an overflowing balance."""
+        """Do not consume a turn when the ledger rejects an overflowing balance.
+        驗證餘額溢出時回滾轉盤。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_overflow_rolls_back_spin。
+        """
         with self.db.transaction(immediate=True) as tx:
             append_entry(tx, '111', MAX_AMOUNT, 'test', 'test', 'max balance')
         with self.assertRaises(ShardError):
@@ -177,7 +350,19 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual(self.db.select('daily_spinner'), [])
 
     def test_auth_csrf_and_invalid_request_ids(self):
-        """Reject unsigned, expired, or malformed reward claims before any write."""
+        """Reject unsigned, expired, or malformed reward claims before any write.
+        驗證轉盤登入、CSRF 與無效操作識別碼。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_auth_csrf_and_invalid_request_ids。
+        """
         self.assertEqual(self.app.test_client().post('/api/daily-spinner/spin', json={}).status_code, 401)
         self.assertEqual(self.client.post('/api/daily-spinner/spin', json={}).status_code, 403)
         for request_id in ('bad', None, 123, []):
@@ -187,7 +372,19 @@ class DailySpinnerTests(unittest.TestCase):
         self.assertEqual(self.db.select('daily_spinner'), [])
 
     def test_member_receipts_are_independent_and_immutable(self):
-        """Different members may draw daily while existing results cannot be modified."""
+        """Different members may draw daily while existing results cannot be modified.
+        驗證成員憑證彼此獨立且禁止修改。
+
+        Args:
+            None: 無需傳入參數；實例方法使用目前物件狀態。
+
+        Returns:
+            None: 僅更新狀態或執行副作用，不回傳資料。
+
+        Example:
+            在 backend 目錄執行：python -m unittest discover -s tests -p "test_daily_spinner.py"
+            對應測試或輔助流程：test_daily_spinner.DailySpinnerTests.test_member_receipts_are_independent_and_immutable。
+        """
         request_id = str(uuid4())
         first = spin(self.db, '111', request_id, now=self.before_midnight)
         second = spin(self.db, '222', request_id, now=self.before_midnight)

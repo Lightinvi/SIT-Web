@@ -27,6 +27,7 @@ function Records({ table, logs, sort, direction, query, searchColumn, onColumns,
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const sentinel = useRef<HTMLDivElement>(null)
+  const scrollArea = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const controller = new AbortController()
     setBusy(true)
@@ -53,23 +54,25 @@ function Records({ table, logs, sort, direction, query, searchColumn, onColumns,
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && !busy && !error && next !== null) setCursor(next)
-    })
+    }, { root: logs ? null : scrollArea.current })
     if (sentinel.current) observer.observe(sentinel.current)
     return () => observer.disconnect()
-  }, [busy, error, next])
+  }, [busy, error, next, logs])
+  const pagination = <div ref={sentinel} className="admin-pagination">
+    {busy ? <p role="status">載入中…</p> : next !== null ? <button className="account-button" onClick={() => setCursor(next)}>載入更多</button> : rows.length > 0 && <p>已顯示全部紀錄</p>}
+  </div>
   return <>
     {error && <p role="alert">{error}</p>}
     {!error && <>
       <p className="admin-count">已載入 {rows.length} 筆{logs && ` · ${Intl.DateTimeFormat().resolvedOptions().timeZone}`}</p>
-      <div className="admin-table-scroll" tabIndex={0} aria-label={logs ? '後端紀錄表格' : `${table} 資料表`}>
+      <div ref={scrollArea} className="admin-table-scroll" tabIndex={0} aria-label={logs ? '後端紀錄表格' : `${table} 資料表`}>
         <table className="admin-table"><thead><tr>{columns.map(column => <th key={column} aria-sort={!logs && column === sort ? direction === 'asc' ? 'ascending' : 'descending' : undefined}>
           {logs ? logFields[column] : <button onClick={() => onSort(column)}>{column}{sort === column ? direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} /> : <ChevronsUpDown size={14} />}</button>}
         </th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(column => <td key={column} className={logs && column === 'level' ? `log-level log-${String(row[column]).toLowerCase()}` : ''}>{cell(row[column], column, logs)}</td>)}</tr>)}</tbody></table>
+        {!logs && pagination}
       </div>
       {!busy && rows.length === 0 && <p role="status">目前沒有資料。</p>}
-      <div ref={sentinel} className="admin-pagination">
-        {busy ? <p role="status">載入中…</p> : next !== null ? <button className="account-button" onClick={() => setCursor(next)}>載入更多</button> : rows.length > 0 && <p>已顯示全部紀錄</p>}
-      </div>
+      {logs && pagination}
     </>}
   </>
 }
