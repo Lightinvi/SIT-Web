@@ -45,6 +45,27 @@ export default function Admin() {
     } finally { setBusy(false) }
   }
 
+  async function updateWardogs() {
+    setBusy(true); setMessage('正在檢查 WARDOGS 更新，首次下載圖片可能需要數分鐘…')
+    try {
+      const sessionResponse = await fetch('/api/auth/session', { cache: 'no-store' })
+      const session = await sessionResponse.json()
+      if (!sessionResponse.ok || !session.authenticated) throw new Error('請重新登入帳號。')
+      const response = await fetch('/api/admin/wardogs/update', { method: 'POST', headers: { 'X-CSRF-Token': session.csrf_token } })
+      let result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'WARDOGS 更新失敗。')
+      for (let tries = 0; result.running && tries < 200; tries++) {
+        await new Promise(resolve => window.setTimeout(resolve, 3000))
+        const status = await fetch('/api/admin/wardogs/status', { cache: 'no-store' })
+        result = await status.json()
+        if (!status.ok) throw new Error(result.error || '無法讀取更新進度。')
+      }
+      if (result.error) throw new Error(result.error)
+      setMessage(result.running ? 'WARDOGS 資料仍在背景更新，請稍後查看資料庫。' : `WARDOGS 資料檢查完成。檢查時間：${new Date(result.checkedAt * 1000).toLocaleString()}`)
+    } catch (error) { setMessage(error instanceof Error ? error.message : '更新失敗。') }
+    finally { setBusy(false) }
+  }
+
   return <section className="admin-viewer admin-home" aria-labelledby="admin-title">
     <Link to="/" className="profile-back"><ArrowLeft size={16} aria-hidden="true" />返回首頁</Link>
     <div className="admin-heading"><h1 id="admin-title">管理工具</h1><ShieldCheck size={24} aria-hidden="true" /></div>
@@ -57,6 +78,8 @@ export default function Admin() {
       </nav>
       <div className="admin-sync-row"><h2><ShieldCheck size={20} aria-hidden="true" />權限與 Discord 快取</h2>
       <button className="admin-sync-button" disabled={busy} onClick={synchronize}><RefreshCw size={17} aria-hidden="true" className={busy ? 'admin-spinning' : ''} />{busy ? '同步中…' : '同步權限與快取'}</button></div>
+      <div className="admin-sync-row"><h2><Database size={20} aria-hidden="true" />WARDOGS 資料</h2>
+        <button className="admin-sync-button" disabled={busy} onClick={updateWardogs}><RefreshCw size={17} aria-hidden="true" />更新 WARDOGS 資料</button></div>
       <AdminShardGrant />
     </>}
     {message && <p className="profile-notice" role="status">{message}</p>}

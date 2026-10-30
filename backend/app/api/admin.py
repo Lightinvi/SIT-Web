@@ -290,3 +290,15 @@ def sync():
     current_app.logger.info('Administrator synchronized Discord permissions: members=%s revoked_sessions=%s', updated, revoked)
     return jsonify(updatedMembers=updated, revokedSessions=revoked,
                    roleCount=len(roles['roles']), memberCount=len(members), updatedAt=now)
+
+
+@admin_bp.post('/wardogs/update')
+def update_wardogs():
+    """Start a background update so large releases do not block HTTP workers."""
+    return jsonify(current_app.extensions['wardogs'].start_update()), 202
+
+
+@admin_bp.get('/wardogs/status')
+def wardogs_status():
+    """Report cache version and background update progress."""
+    return jsonify(current_app.extensions['wardogs'].status())

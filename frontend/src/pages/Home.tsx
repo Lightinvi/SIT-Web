@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowUpRight, CircleHelp, Disc3, Spade, TrendingUp } from 'l
 import { Link, useSearchParams } from 'react-router-dom'
 import type { LoginSession } from '../components/Account'
 import teamLogo from '../assets/SIT隊徽(去背).png'
+import wardogsImage from '../assets/wardogs.png'
 import shardIcon from '../assets/star_shard.png'
 import './Home.css'
 
@@ -29,6 +30,9 @@ export default function Home({ account, children }: { account: LoginSession | nu
       </Link>
       <Link className="home-feature" to="/predictions">
         <img src={shardIcon} alt="" /><span><TrendingUp size={18} />預測系統</span><ArrowUpRight className="home-feature-arrow" size={18} />
+      </Link>
+      <Link className="home-feature" to="/wardogs">
+        <img src={wardogsImage} alt="" /><span>WARDOGS</span><ArrowUpRight className="home-feature-arrow" size={18} />
       </Link>
     </div>
   </section>

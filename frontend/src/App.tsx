@@ -6,6 +6,8 @@ import './App.css'
 import Administrators from './components/Administrators'
 import Account from './components/Account'
 import type { LoginSession } from './components/Account'
+import Wardogs from './pages/Wardogs'
+import WardogsDatabase from './pages/WardogsDatabase'
 import Home from './pages/Home'
 import DailySpinner from './pages/DailySpinner'
 import Blackjack from './pages/Blackjack'
@@ -60,6 +62,9 @@ function App() {
         <Administrators />
 
           </Home>} />
+          <Route path="/wardogs" element={<Wardogs />} />
+          <Route path="/wardogs/database" element={<WardogsDatabase />} />
+          <Route path="/wardogs/database/items/:itemId" element={<WardogsDatabase />} />
           <Route path="/daily-spinner" element={<DailySpinner />} />
           <Route path="/blackjack" element={<Blackjack />} />
           <Route path="/predictions" element={<Predictions />} />

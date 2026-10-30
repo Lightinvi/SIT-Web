@@ -59,6 +59,11 @@ def create_app(config=None):
         app.config["DISCORD_CACHE_PATH"],
     )
 
+    from app.services.wardogs import WardogsService
+    from app.api.wardogs import wardogs_bp
+    app.extensions['wardogs'] = WardogsService(Path(app.config['DISCORD_CACHE_PATH']).parent / 'wardogs')
+    app.register_blueprint(wardogs_bp, url_prefix='/api/wardogs')
+
     from app.api.discord import discord_bp
     from app.api.auth import auth_bp
     from app.api.admin import admin_bp

@@ -52,6 +52,19 @@ class AdminTests(unittest.TestCase):
             session['csrf'] = 'test'
         self.live = {'user': {'id': '111'}, 'roles': [ADMIN]}
 
+    def test_wardogs_update_requires_admin_and_csrf(self):
+        """Protect background refresh with the same live authorization as other tools."""
+        cache = self.app.extensions['wardogs']
+        with patch.object(self.service, '_request', return_value=self.live), patch.object(cache, 'start_update', return_value={'running': True}) as update:
+            self.assertEqual(self.client.post('/api/admin/wardogs/update').status_code, 403)
+            update.assert_not_called()
+            response = self.client.post('/api/admin/wardogs/update', headers={'X-CSRF-Token': 'test'})
+            self.assertEqual(response.status_code, 202)
+            update.assert_called_once()
+        with patch.object(self.service, '_request', return_value={'user': {'id': '111'}, 'roles': [MEMBER]}), patch.object(cache, 'start_update') as update:
+            self.assertEqual(self.client.post('/api/admin/wardogs/update', headers={'X-CSRF-Token': 'test'}).status_code, 403)
+            update.assert_not_called()
+
     def test_authorization_and_csrf(self):
         """Reject anonymous, missing-CSRF, revoked, and unverifiable administrator requests.
         驗證管理授權與 CSRF 驗證。
