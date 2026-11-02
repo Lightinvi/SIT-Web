@@ -39,3 +39,12 @@
 @keyframes invitation-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .invitation-loading svg, .invitation-submit .lucide-loader-circle { animation: none; } }
 @media (max-width: 480px) { .invitation-dialog { padding: 20px; } .invitation-option { gap: 10px; padding: 16px 4px; } .invitation-heading h2 { font-size: 23px; } }
+
+.invitation-dialog a:focus-visible { outline: 3px solid #377f83; outline-offset: 3px; }
+.invitation-result { margin-top: 22px; padding: 18px; border: 1px solid #cbded8; border-radius: 5px; background: #edf4f2; }
+.invitation-result h3 { margin: 0 0 10px; font-size: 17px; }
+.invitation-result p { font-size: 12px; line-height: 1.9; color: #615e55; }
+.invitation-result a { text-decoration: none; }
+.invitation-result-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.invitation-result-actions .invitation-retry { margin-top: 0; color: #282620; }
+.invitation-url { width: 100%; box-sizing: border-box; min-width: 0; margin-top: 14px; padding: 10px; border: 1px solid #cfcabd; border-radius: 5px; background: white; color: #282620; font: inherit; font-size: 12px; }

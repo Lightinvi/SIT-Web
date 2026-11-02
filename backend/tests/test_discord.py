@@ -62,7 +62,7 @@ class DiscordTests(unittest.TestCase):
                 self.assertEqual(request.get_header('Authorization'), 'Bot test-secret')
                 payload = json.loads(request.data)
                 self.assertEqual(payload['max_age'], 600)
-                self.assertEqual(payload['max_uses'], 10)
+                self.assertEqual(payload['max_uses'], 0)
                 self.assertTrue(payload['unique'])
                 self.assertEqual(payload['temporary'], settings['temporary'])
                 self.assertEqual(payload.get('role_ids', []), settings['role_ids'])

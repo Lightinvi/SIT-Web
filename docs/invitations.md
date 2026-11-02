@@ -3,10 +3,15 @@
 首頁「加入 Discord」會開啟邀請視窗，選項、描述與停用狀態由後端設定提供。
 正規成員需輸入目前 Discord 管理員的 **username**（不是顯示名稱或群組暱稱）。
 
+取得邀請後，可點擊「在 Discord 桌面版開啟」（`discord://-/invite/{code}`）、
+「使用瀏覽器開啟」或「複製邀請連結」，再於 Discord 中確認接受邀請。
+網站不偵測安裝狀態或自動切換至網頁版；桌面版開啟取決於系統與瀏覽器的協定處理設定。
+複製失敗時可從唯讀欄位手動複製，選擇不同身分或修改代碼時會清除已顯示的邀請。
+
 ## 動態邀請
 
 後端以 `DISCORD_BOT_TOKEN` 呼叫 `POST https://discord.com/api/v10/channels/{channel_id}/invites`。
-每次新操作設定 `max_age=600`、`max_uses=10`、`unique=true`。
+每次新操作設定 `max_age=600`、`max_uses=0`（不限使用次數）、`unique=true`。
 
 | 加入類型 | channel_id | 設定 |
 | --- | --- | --- |
