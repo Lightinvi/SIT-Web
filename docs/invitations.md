@@ -6,7 +6,7 @@
 ## 動態邀請
 
 後端以 `DISCORD_BOT_TOKEN` 呼叫 `POST https://discord.com/api/v10/channels/{channel_id}/invites`。
-每次新操作設定 `max_age=600`、`max_uses=1`、`unique=true`。
+每次新操作設定 `max_age=600`、`max_uses=10`、`unique=true`。
 
 | 加入類型 | channel_id | 設定 |
 | --- | --- | --- |

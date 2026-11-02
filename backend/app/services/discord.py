@@ -127,8 +127,8 @@ class DiscordService:
         return data
 
     def create_invite(self, channel_id, role_ids, temporary):
-        """Create a fresh single-use ten-minute invite with membership settings.
-        依指定身份組與暫時成員設定，建立十分鐘有效且限用一次的 Discord 邀請。
+        """Create a fresh ten-use ten-minute invite with membership settings.
+        依指定身份組與暫時成員設定，建立十分鐘有效且限用十次的 Discord 邀請。
 
         Args:
             channel_id: Discord 邀請目標頻道 ID。
@@ -148,7 +148,7 @@ class DiscordService:
         from app.models.invitation import INVITE_MAX_AGE
         if not self.token:
             raise DiscordError('尚未設定 DISCORD_BOT_TOKEN。', 503)
-        payload = {'max_age': INVITE_MAX_AGE, 'max_uses': 1,
+        payload = {'max_age': INVITE_MAX_AGE, 'max_uses': 10,
                    'unique': True, 'temporary': temporary}
         if role_ids:
             payload['role_ids'] = role_ids
